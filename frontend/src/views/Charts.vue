@@ -22,6 +22,9 @@ const selectedStock = ref<string>('')
 const klineHistory = ref<KLineData[]>([])
 const loadingHistory = ref(false)
 
+// 股票来源：holdings-持仓股票，pool-全部股票池
+const stockSource = ref<'holdings' | 'pool'>('holdings')
+
 // 图表容器引用
 const chartContainerRef = ref<HTMLElement | null>(null)
 const volumeChartContainerRef = ref<HTMLElement | null>(null)
@@ -56,21 +59,46 @@ const showMACD = ref(true)
 const showVolume = ref(true)
 
 // 初始化选中第一只股票
-onMounted(() => {
-  if (store.holdings.length > 0) {
+onMounted(async () => {
+  // 加载股票池数据
+  await store.fetchStockPool()
+
+  // 初始化选中的股票
+  if (stockSource.value === 'pool' && store.stockPool.length > 0) {
+    selectedStock.value = store.stockPool[0].symbol
+  } else if (store.holdings.length > 0) {
     selectedStock.value = store.holdings[0].symbol
   }
 })
 
 // 监听持仓变化
 watch(() => store.holdings, (newHoldings) => {
-  if (newHoldings.length > 0) {
+  if (newHoldings.length > 0 && stockSource.value === 'holdings') {
     const exists = newHoldings.find(h => h.symbol === selectedStock.value)
     if (!exists) {
       selectedStock.value = newHoldings[0].symbol
     }
   }
 }, { immediate: true })
+
+// 监听股票池变化
+watch(() => store.stockPool, (newPool) => {
+  if (stockSource.value === 'pool' && newPool.length > 0) {
+    const exists = newPool.find(s => s.symbol === selectedStock.value)
+    if (!exists) {
+      selectedStock.value = newPool[0].symbol
+    }
+  }
+}, { immediate: true })
+
+// 监听股票来源变化
+watch(stockSource, (newSource) => {
+  if (newSource === 'pool' && store.stockPool.length > 0) {
+    selectedStock.value = store.stockPool[0].symbol
+  } else if (newSource === 'holdings' && store.holdings.length > 0) {
+    selectedStock.value = store.holdings[0].symbol
+  }
+})
 
 // 获取K线数据
 const fetchKLineData = async () => {
@@ -460,6 +488,30 @@ const technicalIndicators = computed(() => {
   }
 })
 
+// 获取当前可显示的股票列表
+const availableStocks = computed(() => {
+  if (stockSource.value === 'pool') {
+    return store.stockPool.map(s => ({
+      symbol: s.symbol,
+      name: s.name
+    }))
+  }
+  return store.holdings.map(h => ({
+    symbol: h.symbol,
+    name: h.name
+  }))
+})
+
+// 板块名称映射
+const sectorNames: Record<string, string> = {
+  FINANCE: '金融',
+  TECHNOLOGY: '科技',
+  CONSUMER: '消费',
+  HEALTHCARE: '医疗',
+  ENERGY: '能源',
+  INDUSTRY: '工业'
+}
+
 const formatNumber = (num: number) => {
   if (num >= 100000000) return (num / 100000000).toFixed(2) + '亿'
   if (num >= 10000) return (num / 10000).toFixed(2) + '万'
@@ -478,10 +530,39 @@ const formatNumber = (num: number) => {
     <!-- 控制栏 -->
     <div class="card mb-6">
       <div class="flex flex-wrap items-center justify-between gap-4">
+        <!-- 股票来源切换 -->
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-gray-400">数据来源:</span>
+          <div class="flex rounded-lg overflow-hidden border border-gray-600">
+            <button
+              @click="stockSource = 'holdings'"
+              :class="[
+                'px-3 py-1.5 text-sm transition-colors',
+                stockSource === 'holdings'
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+              ]"
+            >
+              持仓股票
+            </button>
+            <button
+              @click="stockSource = 'pool'"
+              :class="[
+                'px-3 py-1.5 text-sm transition-colors',
+                stockSource === 'pool'
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+              ]"
+            >
+              全部股票池
+            </button>
+          </div>
+        </div>
+
         <!-- 股票选择 -->
         <div class="flex flex-wrap gap-2">
           <button
-            v-for="stock in store.holdings"
+            v-for="stock in availableStocks"
             :key="stock.symbol"
             @click="selectedStock = stock.symbol"
             :class="[

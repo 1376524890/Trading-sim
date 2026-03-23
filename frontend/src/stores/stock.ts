@@ -147,6 +147,9 @@ export const useStockStore = defineStore('stock', () => {
   // AI建议
   const aiRecommendations = ref<AIRecommendation[]>([])
 
+  // 股票池数据
+  const stockPool = ref<any[]>([])
+
   // 市场情绪
   const marketSentiment = ref({
     overall: 50,
@@ -435,6 +438,34 @@ export const useStockStore = defineStore('stock', () => {
     }
   }
 
+  // 获取股票池
+  const fetchStockPool = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/diversified/stock-pool`)
+      const data = response.data
+
+      if (!data.success || !data.stock_pool) {
+        return []
+      }
+
+      // 将所有板块的股票合并为一个数组
+      const allStocks: any[] = []
+      for (const sector in data.stock_pool) {
+        for (const stock of data.stock_pool[sector]) {
+          allStocks.push({
+            ...stock,
+            sector
+          })
+        }
+      }
+      stockPool.value = allStocks
+      return allStocks
+    } catch (e) {
+      console.error('Failed to fetch stock pool:', e)
+      return []
+    }
+  }
+
   // Calculate AI recommendations from holdings
   const calculateAIRecommendations = (): AIRecommendation[] => {
     if (holdings.value.length === 0) {
@@ -696,6 +727,7 @@ export const useStockStore = defineStore('stock', () => {
     stockPerformance,
     aiRecommendations,
     marketSentiment,
+    stockPool,
     loading,
     error,
     lastUpdate,
@@ -708,6 +740,7 @@ export const useStockStore = defineStore('stock', () => {
     fetchNews,
     fetchRiskAnalysis,
     fetchStockHistory,
+    fetchStockPool,
     calculateRecentActivity,
     calculateAIRecommendations,
     buyStock,

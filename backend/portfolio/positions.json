@@ -1,6 +1,183 @@
 {
-  "cash": 100000,
-  "positions": {},
-  "trades": [],
-  "last_update": "2026-03-22 07:25:18"
+  "cash": 43297.401,
+  "positions": {
+    "000858.SZ": {
+      "name": "五粮液",
+      "shares": 100,
+      "avg_cost": 102.4,
+      "current_price": 102.4,
+      "holding_type": "long_term",
+      "sector": "消费",
+      "buy_date": "2026-03-23",
+      "strategy": "initial_build",
+      "target_price": 153.60000000000002,
+      "stop_loss": 87.04,
+      "notes": "初始建仓 - 消费"
+    },
+    "002594.SZ": {
+      "name": "比亚迪",
+      "shares": 100,
+      "avg_cost": 103.03,
+      "current_price": 103.03,
+      "holding_type": "mid_term",
+      "sector": "科技",
+      "buy_date": "2026-03-23",
+      "strategy": "initial_build",
+      "target_price": 133.939,
+      "stop_loss": 92.727,
+      "notes": "初始建仓 - 科技"
+    },
+    "600276.SS": {
+      "name": "恒瑞医药",
+      "shares": 200,
+      "avg_cost": 55.14,
+      "current_price": 55.14,
+      "holding_type": "short_term",
+      "sector": "医药",
+      "buy_date": "2026-03-23",
+      "strategy": "initial_build",
+      "target_price": 63.410999999999994,
+      "stop_loss": 52.382999999999996,
+      "notes": "初始建仓 - 医药"
+    },
+    "601857.SS": {
+      "name": "中国石油",
+      "shares": 600,
+      "avg_cost": 12.24,
+      "current_price": 12.24,
+      "holding_type": "long_term",
+      "sector": "能源",
+      "buy_date": "2026-03-23",
+      "strategy": "initial_build",
+      "target_price": 18.36,
+      "stop_loss": 10.404,
+      "notes": "初始建仓 - 能源"
+    },
+    "600900.SS": {
+      "name": "长江电力",
+      "shares": 200,
+      "avg_cost": 27.18,
+      "current_price": 27.18,
+      "holding_type": "mid_term",
+      "sector": "公用事业",
+      "buy_date": "2026-03-23",
+      "strategy": "initial_build",
+      "target_price": 35.334,
+      "stop_loss": 24.462,
+      "notes": "初始建仓 - 公用事业"
+    },
+    "601398.SS": {
+      "name": "工商银行",
+      "shares": 900,
+      "avg_cost": 7.5,
+      "current_price": 7.5,
+      "holding_type": "mid_term",
+      "sector": "金融",
+      "buy_date": "2026-03-23",
+      "strategy": "diversified",
+      "target_price": 9.75,
+      "stop_loss": 6.75,
+      "notes": "蓝筹股;高股息5.5%;板块走强;"
+    },
+    "601225.SS": {
+      "name": "陕西煤业",
+      "shares": 200,
+      "avg_cost": 27.16,
+      "current_price": 27.16,
+      "holding_type": "mid_term",
+      "sector": "能源",
+      "buy_date": "2026-03-23",
+      "strategy": "diversified",
+      "target_price": 35.308,
+      "stop_loss": 24.444,
+      "notes": "蓝筹股;高股息9.5%;板块走强;"
+    }
+  },
+  "trades": [
+    {
+      "time": "2026-03-23 00:34:06",
+      "type": "buy",
+      "symbol": "000858.SZ",
+      "name": "五粮液",
+      "shares": 100,
+      "price": 102.4,
+      "total_cost": 10270.72,
+      "holding_type": "long_term",
+      "sector": "消费",
+      "strategy": "initial_build"
+    },
+    {
+      "time": "2026-03-23 00:34:07",
+      "type": "buy",
+      "symbol": "002594.SZ",
+      "name": "比亚迪",
+      "shares": 100,
+      "price": 103.03,
+      "total_cost": 10333.909,
+      "holding_type": "mid_term",
+      "sector": "科技",
+      "strategy": "initial_build"
+    },
+    {
+      "time": "2026-03-23 00:34:11",
+      "type": "buy",
+      "symbol": "600276.SS",
+      "name": "恒瑞医药",
+      "shares": 200,
+      "price": 55.14,
+      "total_cost": 11061.084,
+      "holding_type": "short_term",
+      "sector": "医药",
+      "strategy": "initial_build"
+    },
+    {
+      "time": "2026-03-23 00:34:16",
+      "type": "buy",
+      "symbol": "601857.SS",
+      "name": "中国石油",
+      "shares": 600,
+      "price": 12.24,
+      "total_cost": 7366.032,
+      "holding_type": "long_term",
+      "sector": "能源",
+      "strategy": "initial_build"
+    },
+    {
+      "time": "2026-03-23 00:34:18",
+      "type": "buy",
+      "symbol": "600900.SS",
+      "name": "长江电力",
+      "shares": 200,
+      "price": 27.18,
+      "total_cost": 5452.308,
+      "holding_type": "mid_term",
+      "sector": "公用事业",
+      "strategy": "initial_build"
+    },
+    {
+      "time": "2026-03-23 00:41:37",
+      "type": "buy",
+      "symbol": "601398.SS",
+      "name": "工商银行",
+      "shares": 900,
+      "price": 7.5,
+      "total_cost": 6770.25,
+      "holding_type": "mid_term",
+      "sector": "金融",
+      "strategy": "diversified"
+    },
+    {
+      "time": "2026-03-23 00:44:09",
+      "type": "buy",
+      "symbol": "601225.SS",
+      "name": "陕西煤业",
+      "shares": 200,
+      "price": 27.16,
+      "total_cost": 5448.296,
+      "holding_type": "mid_term",
+      "sector": "能源",
+      "strategy": "diversified"
+    }
+  ],
+  "last_update": "2026-03-23 02:07:56"
 }
