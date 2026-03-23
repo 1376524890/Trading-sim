@@ -34,7 +34,9 @@ from app.services.portfolio_manager import PortfolioManager
 app = FastAPI(
     title="股票交易系统 API",
     description="基于 FastAPI 的股票模拟交易系统后端",
-    version="1.0.1"
+    version="1.0.1",
+    docs_url="/docs",
+    redoc_url="/redoc"
 )
 
 # 初始化交易系统

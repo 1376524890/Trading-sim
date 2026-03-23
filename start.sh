@@ -8,6 +8,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Get script directory
@@ -249,11 +250,144 @@ setup_all() {
     echo ""
 }
 
+# ==================== 停止函数 ====================
+
+# 停止后端服务
+stop_backend() {
+    echo -e "${YELLOW}🔄 正在停止后端服务...${NC}"
+
+    # 方法1: 通过端口查找进程
+    local backend_pid=$(lsof -ti:8080 2>/dev/null || true)
+
+    if [ -n "$backend_pid" ]; then
+        echo -e "${BLUE}   找到后端进程 (PID: $backend_pid)${NC}"
+        kill $backend_pid 2>/dev/null
+        sleep 1
+
+        # 检查是否成功停止
+        if ps -p $backend_pid > /dev/null 2>&1; then
+            echo -e "${YELLOW}   强制终止后端进程...${NC}"
+            kill -9 $backend_pid 2>/dev/null
+            sleep 1
+        fi
+    fi
+
+    # 方法2: 通过进程名查找
+    local api_pids=$(pgrep -f "api_server.py" 2>/dev/null || true)
+    if [ -n "$api_pids" ]; then
+        for pid in $api_pids; do
+            echo -e "${BLUE}   终止 api_server.py 进程 (PID: $pid)${NC}"
+            kill $pid 2>/dev/null
+        done
+        sleep 1
+    fi
+
+    # 验证端口已释放
+    if lsof -ti:8080 &>/dev/null; then
+        echo -e "${RED}❌ 警告: 端口 8080 仍被占用${NC}"
+        return 1
+    else
+        echo -e "${GREEN}✓ 后端服务已停止${NC}"
+        return 0
+    fi
+}
+
+# 停止前端服务
+stop_frontend() {
+    echo -e "${YELLOW}🔄 正在停止前端服务...${NC}"
+
+    # 方法1: 通过端口查找进程
+    local frontend_pid=$(lsof -ti:3000 2>/dev/null || true)
+
+    if [ -n "$frontend_pid" ]; then
+        echo -e "${BLUE}   找到前端进程 (PID: $frontend_pid)${NC}"
+        kill $frontend_pid 2>/dev/null
+        sleep 1
+
+        # 检查是否成功停止
+        if ps -p $frontend_pid > /dev/null 2>&1; then
+            echo -e "${YELLOW}   强制终止前端进程...${NC}"
+            kill -9 $frontend_pid 2>/dev/null
+            sleep 1
+        fi
+    fi
+
+    # 方法2: 通过进程名查找 (node/vite)
+    local node_pids=$(pgrep -f "vite|npm.*dev" 2>/dev/null | head -5 || true)
+    if [ -n "$node_pids" ]; then
+        for pid in $node_pids; do
+            # 检查是否是前端相关进程
+            if ps -p $pid -o cmd= 2>/dev/null | grep -q "frontend"; then
+                echo -e "${BLUE}   终止前端进程 (PID: $pid)${NC}"
+                kill $pid 2>/dev/null
+            fi
+        done
+        sleep 1
+    fi
+
+    # 验证端口已释放
+    if lsof -ti:3000 &>/dev/null; then
+        echo -e "${RED}❌ 警告: 端口 3000 仍被占用${NC}"
+        return 1
+    else
+        echo -e "${GREEN}✓ 前端服务已停止${NC}"
+        return 0
+    fi
+}
+
+# 停止所有服务
+stop_all_services() {
+    stop_frontend
+    stop_backend
+    echo -e "${GREEN}✓ 所有服务已停止${NC}"
+}
+
+# 查看服务状态
+status() {
+    echo "=========================================="
+    echo "  Stock Investment System - 服务状态"
+    echo "=========================================="
+    echo ""
+
+    # 检查后端
+    echo -e "${BLUE}后端服务 (端口 8080):${NC}"
+    if lsof -ti:8080 &>/dev/null; then
+        local backend_pid=$(lsof -ti:8080)
+        echo -e "  ${GREEN}● 运行中${NC} (PID: $backend_pid)"
+        ps -p $backend_pid -o pid,etime,cmd --no-headers 2>/dev/null | while read line; do
+            echo -e "     $line"
+        done
+    else
+        echo -e "  ${RED}○ 未运行${NC}"
+    fi
+    echo ""
+
+    # 检查前端
+    echo -e "${BLUE}前端服务 (端口 3000):${NC}"
+    if lsof -ti:3000 &>/dev/null; then
+        local frontend_pid=$(lsof -ti:3000)
+        echo -e "  ${GREEN}● 运行中${NC} (PID: $frontend_pid)"
+        ps -p $frontend_pid -o pid,etime,cmd --no-headers 2>/dev/null | while read line; do
+            echo -e "     $line"
+        done
+    else
+        echo -e "  ${RED}○ 未运行${NC}"
+    fi
+    echo ""
+}
+
 # ==================== 启动函数 ====================
 
 # Function to start backend
 start_backend() {
     echo -e "${YELLOW}🚀 Starting Backend...${NC}"
+
+    # 停止现有后端进程
+    if lsof -ti:8080 &>/dev/null; then
+        echo -e "${BLUE}   停止现有后端进程...${NC}"
+        stop_backend
+        sleep 1
+    fi
 
     # Setup and activate venv
     setup_venv
@@ -322,6 +456,14 @@ start_backend() {
 # Function to start frontend
 start_frontend() {
     echo -e "${YELLOW}🚀 Starting Frontend...${NC}"
+
+    # 停止现有前端进程
+    if lsof -ti:3000 &>/dev/null; then
+        echo -e "${BLUE}   停止现有前端进程...${NC}"
+        stop_frontend
+        sleep 1
+    fi
+
     cd "$SCRIPT_DIR/frontend"
 
     # Check if node is available
@@ -351,6 +493,12 @@ start_frontend() {
 # Function to start both
 start_all() {
     echo -e "${YELLOW}🚀 Starting both services...${NC}"
+
+    # 停止现有服务进程
+    echo -e "${BLUE}   停止现有服务进程...${NC}"
+    stop_all_services
+    sleep 1
+    echo ""
 
     # Setup and activate venv
     setup_venv
@@ -440,6 +588,35 @@ start_all() {
     npm run dev
 }
 
+# ==================== 重启函数 ====================
+
+# 重启后端
+restart_backend() {
+    echo -e "${CYAN}🔄 正在重启后端服务...${NC}"
+    stop_backend
+    echo ""
+    sleep 1
+    start_backend
+}
+
+# 重启前端
+restart_frontend() {
+    echo -e "${CYAN}🔄 正在重启前端服务...${NC}"
+    stop_frontend
+    echo ""
+    sleep 1
+    start_frontend
+}
+
+# 重启所有服务
+restart_all() {
+    echo -e "${CYAN}🔄 正在重启所有服务...${NC}"
+    stop_all_services
+    echo ""
+    sleep 1
+    start_all
+}
+
 # Main
 case "$1" in
     setup)
@@ -454,16 +631,43 @@ case "$1" in
     all)
         start_all
         ;;
+    restart)
+        restart_all
+        ;;
+    restart-backend)
+        restart_backend
+        ;;
+    restart-frontend)
+        restart_frontend
+        ;;
+    stop)
+        stop_all_services
+        ;;
+    stop-backend)
+        stop_backend
+        ;;
+    stop-frontend)
+        stop_frontend
+        ;;
+    status)
+        status
+        ;;
     *)
         echo "Stock Investment System - 启动脚本"
         echo ""
-        echo "用法: $0 {setup|backend|frontend|all}"
+        echo "用法: $0 {setup|backend|frontend|all|restart|stop|status}"
         echo ""
-        echo "  setup    - 完整环境设置（检查 + 安装所有依赖）"
-        echo "  backend  - 启动后端 API 服务"
-        echo "  frontend - 启动前端开发服务器"
-        echo "  all      - 启动全部服务"
-        echo ""
+        echo "  setup           - 完整环境设置（检查 + 安装所有依赖）"
+        echo "  backend         - 启动后端 API 服务"
+        echo "  frontend        - 启动前端开发服务器"
+        echo "  all             - 启动全部服务"
+        echo "  restart         - 重启所有服务"
+        echo "  restart-backend - 重启后端服务"
+        echo "  restart-frontend- 重启前端服务"
+        echo "  stop            - 停止所有服务"
+        echo "  stop-backend    - 停止后端服务"
+        echo "  stop-frontend   - 停止前端服务"
+        echo "  status          - 查看服务状态"
         echo "依赖文档: docs/Dependencies.md"
         echo ""
         exit 1
