@@ -258,13 +258,28 @@ class HumanInvestorBehavior:
 class DiversifiedInvestmentSystem:
     """多样化投资系统"""
 
-    def __init__(self, config: InvestmentConfig = None):
+    def __init__(self, config: InvestmentConfig = None, use_llm_agent: bool = False):
         """初始化"""
         self.config = config or InvestmentConfig()
         self.cash = self.config.initial_cash
         self.positions: Dict[str, Position] = {}
         self.trade_history: List[dict] = []
         self.behavior = HumanInvestorBehavior(self.config)
+
+        # LLM Agent 策略
+        self.use_llm_agent = use_llm_agent
+        self.llm_agent = None
+        if use_llm_agent:
+            try:
+                from app.llm_agent import LLMAgentStrategy, AgentConfig
+                agent_config = AgentConfig.from_env()
+                if agent_config.enabled:
+                    self.llm_agent = LLMAgentStrategy(self, agent_config)
+                    logger.info("✅ LLM Agent策略已启用")
+                else:
+                    logger.info("ℹ️ LLM Agent配置为禁用状态")
+            except Exception as e:
+                logger.warning(f"⚠️ LLM Agent初始化失败: {e}")
 
         # 目录设置
         self.portfolio_dir = PROJECT_ROOT / "portfolio"
@@ -790,25 +805,56 @@ class DiversifiedInvestmentSystem:
 """
         return report
 
-    def run_auto_investment(self, initial_build: bool = False):
+    def run_auto_investment(self, initial_build: bool = False, use_agent: bool = None):
         """自动投资运行
 
         Args:
             initial_build: 是否执行初始建仓
+            use_agent: 是否使用LLM Agent（None表示使用系统配置）
         """
         logger.info("=" * 60)
         logger.info("🚀 开始自动投资流程")
+        if use_agent or (use_agent is None and self.use_llm_agent and self.llm_agent):
+            logger.info("🤖 使用LLM Agent策略")
         logger.info("=" * 60)
 
         # 0. 初始建仓（如果需要）
         if initial_build and len(self.positions) < 3:
             self.initial_portfolio_build()
 
-        # 1. 检查止损止盈
+        # 1. 检查止损止盈（始终执行，风控兜底）
         self.check_stop_loss_take_profit()
 
-        # 2. 调仓检查
-        self.rebalance_portfolio()
+        # 2. 决策层 - 根据配置选择策略
+        should_use_agent = use_agent or (use_agent is None and self.use_llm_agent and self.llm_agent)
+
+        if should_use_agent and self.llm_agent and self.llm_agent.is_available():
+            # 使用LLM Agent决策
+            try:
+                logger.info("🤖 LLM Agent正在生成决策...")
+                decisions = self.llm_agent.make_decision()
+                if decisions:
+                    logger.info(f"📋 LLM Agent生成 {len(decisions)} 个决策")
+                    results = self.llm_agent.execute_decisions(decisions)
+                    for result in results:
+                        status = result.get("status", "unknown")
+                        action = result.get("action", "unknown")
+                        if status == "success":
+                            logger.info(f"  ✅ {action}: {result.get('symbol', 'N/A')}")
+                        elif status == "failed":
+                            logger.warning(f"  ⚠️ {action}失败: {result.get('error', 'unknown')}")
+                        else:
+                            logger.error(f"  ❌ {action}错误: {result.get('error', 'unknown')}")
+                else:
+                    logger.info("📋 LLM Agent未生成决策（可能处于观望状态）")
+            except Exception as e:
+                logger.error(f"❌ LLM Agent决策失败: {e}")
+                logger.info("🔄 降级到规则策略")
+                self.rebalance_portfolio()
+        else:
+            # 使用原有规则策略
+            logger.info("📊 使用规则策略")
+            self.rebalance_portfolio()
 
         # 3. 生成报告
         report = self.generate_report()

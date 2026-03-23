@@ -86,6 +86,11 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     global trading_system, diversified_system
     try:
+        # 检查是否启用LLM Agent
+        agent_enabled = os.getenv("AGENT_ENABLED", "false").lower() == "true"
+        if agent_enabled:
+            logger.info("🤖 LLM Agent已启用")
+
         # 初始化多样化投资系统（主系统）
         from app.diversified_investment import DiversifiedInvestmentSystem, InvestmentConfig, InvestmentStyle
         config = InvestmentConfig(
@@ -93,7 +98,7 @@ async def lifespan(app: FastAPI):
             investment_style=InvestmentStyle.BALANCED,
             max_holdings=10
         )
-        diversified_system = DiversifiedInvestmentSystem(config)
+        diversified_system = DiversifiedInvestmentSystem(config, use_llm_agent=agent_enabled)
         logger.info("多样化投资系统初始化完成")
 
         # 保留旧系统兼容性（仅用于回测等）
@@ -750,7 +755,7 @@ async def get_backtest_strategies():
 # 多样化投资系统实例
 diversified_system = None
 
-def get_diversified_system():
+def get_diversified_system(use_llm_agent: bool = False):
     """获取多样化投资系统实例"""
     global diversified_system
     if diversified_system is None:
@@ -761,7 +766,7 @@ def get_diversified_system():
                 investment_style=InvestmentStyle.BALANCED,
                 max_holdings=10
             )
-            diversified_system = DiversifiedInvestmentSystem(config)
+            diversified_system = DiversifiedInvestmentSystem(config, use_llm_agent=use_llm_agent)
         except Exception as e:
             logger.error(f"初始化多样化投资系统失败: {e}")
     return diversified_system
@@ -1051,6 +1056,160 @@ async def get_diversified_report():
         }
     except Exception as e:
         logger.error(f"获取报告失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
+# ============ LLM Agent API ============
+
+@app.get("/api/agent/status")
+async def get_agent_status():
+    """获取LLM Agent状态"""
+    try:
+        system = get_diversified_system()
+        if system is None:
+            return {"error": "系统未初始化"}
+
+        # 检查Agent是否初始化
+        if not hasattr(system, 'llm_agent') or system.llm_agent is None:
+            return {
+                "success": True,
+                "enabled": False,
+                "available": False,
+                "message": "LLM Agent未初始化"
+            }
+
+        status = system.llm_agent.get_status()
+        return {
+            "success": True,
+            **status
+        }
+    except Exception as e:
+        logger.error(f"获取Agent状态失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/agent/decision")
+async def trigger_agent_decision():
+    """手动触发LLM Agent决策"""
+    try:
+        system = get_diversified_system()
+        if system is None:
+            return {"error": "系统未初始化"}
+
+        if not hasattr(system, 'llm_agent') or system.llm_agent is None:
+            return {
+                "success": False,
+                "error": "LLM Agent未初始化"
+            }
+
+        if not system.llm_agent.is_available():
+            return {
+                "success": False,
+                "error": "LLM Agent不可用（请检查配置和API密钥）"
+            }
+
+        # 执行Agent决策
+        decisions = system.llm_agent.make_decision()
+
+        if not decisions:
+            return {
+                "success": True,
+                "message": "Agent未生成决策（可能处于观望状态）",
+                "decisions": []
+            }
+
+        # 执行决策
+        results = system.llm_agent.execute_decisions(decisions)
+
+        return {
+            "success": True,
+            "message": f"Agent决策执行完成",
+            "decisions": decisions,
+            "results": results,
+            "positions_count": len(system.positions),
+            "cash": system.cash,
+            "total_equity": system.get_total_equity()
+        }
+    except Exception as e:
+        logger.error(f"Agent决策失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/agent/auto-run")
+async def agent_auto_run(initial_build: bool = False):
+    """使用Agent运行自动投资流程"""
+    try:
+        system = get_diversified_system()
+        if system is None:
+            return {"error": "系统未初始化"}
+
+        # 检查Agent是否可用
+        if not hasattr(system, 'llm_agent') or system.llm_agent is None:
+            return {
+                "success": False,
+                "error": "LLM Agent未初始化，请在系统配置中启用"
+            }
+
+        if not system.llm_agent.is_available():
+            return {
+                "success": False,
+                "error": "LLM Agent不可用（请检查配置和API密钥）"
+            }
+
+        # 运行自动投资流程（强制使用Agent）
+        report = system.run_auto_investment(initial_build=initial_build, use_agent=True)
+
+        return {
+            "success": True,
+            "message": "Agent自动投资流程完成",
+            "positions_count": len(system.positions),
+            "cash": system.cash,
+            "total_equity": system.get_total_equity(),
+            "report": report
+        }
+    except Exception as e:
+        logger.error(f"Agent自动运行失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@app.get("/api/agent/skills")
+async def get_agent_skills():
+    """获取Agent可用Skills"""
+    try:
+        from app.llm_agent import TradingSkillRegistry
+        skills = TradingSkillRegistry.get_skills_description()
+        return {
+            "success": True,
+            "skills": skills
+        }
+    except Exception as e:
+        logger.error(f"获取Skills失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@app.get("/api/agent/history")
+async def get_agent_history(limit: int = 10):
+    """获取Agent决策历史"""
+    try:
+        system = get_diversified_system()
+        if system is None:
+            return {"error": "系统未初始化"}
+
+        if not hasattr(system, 'llm_agent') or system.llm_agent is None:
+            return {
+                "success": True,
+                "history": [],
+                "message": "LLM Agent未初始化"
+            }
+
+        history = system.llm_agent.decision_history[-limit:]
+        return {
+            "success": True,
+            "history": history,
+            "total": len(system.llm_agent.decision_history)
+        }
+    except Exception as e:
+        logger.error(f"获取Agent历史失败: {e}")
         return {"success": False, "error": str(e)}
 
 
