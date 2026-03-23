@@ -1,13 +1,68 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
-import { onMounted } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useStockStore } from '@/stores/stock'
 
 const store = useStockStore()
+let refreshInterval: number | null = null
+
+// 判断是否为交易时间 (A股: 9:30-11:30, 13:00-15:00)
+const isTradingHours = (): boolean => {
+  const now = new Date()
+  const hour = now.getHours()
+  const minute = now.getMinutes()
+  const time = hour * 60 + minute
+
+  // 上午: 9:30-11:30
+  const morningStart = 9 * 60 + 30  // 570
+  const morningEnd = 11 * 60 + 30   // 690
+
+  // 下午: 13:00-15:00
+  const afternoonStart = 13 * 60   // 780
+  const afternoonEnd = 15 * 60    // 900
+
+  // 周末不交易
+  const day = now.getDay()
+  if (day === 0 || day === 6) return false
+
+  return (time >= morningStart && time <= morningEnd) ||
+         (time >= afternoonStart && time <= afternoonEnd)
+}
+
+// 获取刷新间隔 (交易时间30秒，非交易时间60秒)
+const getRefreshInterval = (): number => {
+  return isTradingHours() ? 30000 : 60000
+}
+
+// 开始自动刷新
+const startAutoRefresh = () => {
+  // 立即刷新一次
+  store.fetchAllData()
+
+  // 设置定时刷新
+  const interval = getRefreshInterval()
+  refreshInterval = window.setInterval(() => {
+    store.fetchAllData()
+    console.log(`数据已刷新 (间隔: ${interval / 1000}秒)`)
+  }, interval)
+}
+
+// 停止自动刷新
+const stopAutoRefresh = () => {
+  if (refreshInterval !== null) {
+    clearInterval(refreshInterval)
+    refreshInterval = null
+  }
+}
 
 // 应用加载时获取后端数据
 onMounted(async () => {
   await store.fetchAllData()
+  startAutoRefresh()
+})
+
+onUnmounted(() => {
+  stopAutoRefresh()
 })
 </script>
 

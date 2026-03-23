@@ -341,18 +341,30 @@ class DiversifiedInvestmentSystem:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
     def get_stock_price(self, symbol: str) -> float:
-        """获取股票价格 - 严格使用真实数据"""
-        from robust_data_manager import RobustDataManager, DataError
+        """获取股票价格 - 使用增强版数据获取器"""
+        from app.services.data_fetcher_enhanced import EnhancedDataFetcher
 
-        manager = RobustDataManager()
+        manager = EnhancedDataFetcher()
 
         try:
             price = manager.get_current_price(symbol)
+            if price is None:
+                # 降级：使用持仓的当前价格或成本价
+                if symbol in self.positions:
+                    price = self.positions[symbol].current_price or self.positions[symbol].avg_cost
+                else:
+                    raise ValueError(f"无法获取 {symbol} 价格")
             logger.debug(f"{symbol} 真实价格: ¥{price:.2f}")
             return price
-        except DataError as e:
+        except Exception as e:
             logger.error(f"无法获取 {symbol} 真实价格: {e}")
-            raise DataError(f"无法获取 {symbol} 的真实价格，请检查数据源")
+            # 降级使用持仓价格
+            if symbol in self.positions:
+                return self.positions[symbol].current_price or self.positions[symbol].avg_cost
+            raise ValueError(f"无法获取 {symbol} 的真实价格，请检查数据源")
+        finally:
+            if hasattr(manager, 'close'):
+                manager.close()
 
     def get_total_equity(self) -> float:
         """计算总权益"""

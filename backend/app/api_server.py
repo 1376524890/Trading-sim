@@ -27,8 +27,8 @@ import json
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from loguru import logger
-from simulated_trading import SimulatedTradingSystem
-from portfolio_manager import PortfolioManager
+from app.simulated_trading import SimulatedTradingSystem
+from app.services.portfolio_manager import PortfolioManager
 
 # 初始化 FastAPI 应用
 app = FastAPI(
@@ -85,7 +85,7 @@ async def lifespan(app: FastAPI):
     global trading_system, diversified_system
     try:
         # 初始化多样化投资系统（主系统）
-        from diversified_investment import DiversifiedInvestmentSystem, InvestmentConfig, InvestmentStyle
+        from app.diversified_investment import DiversifiedInvestmentSystem, InvestmentConfig, InvestmentStyle
         config = InvestmentConfig(
             initial_cash=100000,
             investment_style=InvestmentStyle.BALANCED,
@@ -300,7 +300,7 @@ async def get_stock_price(symbol: str):
 async def get_stock_history(symbol: str, days: int = 30):
     """获取股票历史数据"""
     try:
-        from data_fetcher_enhanced import EnhancedDataFetcher
+        from app.services.data_fetcher_enhanced import EnhancedDataFetcher
         from datetime import datetime, timedelta
 
         data_fetcher = EnhancedDataFetcher()
@@ -308,12 +308,32 @@ async def get_stock_history(symbol: str, days: int = 30):
         # 确保符号格式正确 (如果已包含 .SS 或 .SZ 则不再添加)
         fetch_symbol = symbol if '.' in symbol else f"{symbol}.SS"
 
-        df = data_fetcher.fetch_stock_data(
-            fetch_symbol,
-            start_date=(datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d'),
-            end_date=datetime.now().strftime('%Y-%m-%d')
-        )
-        
+        # 添加超时保护 - 使用简短超时以避免长时间等待
+        import signal
+
+        def timeout_handler(signum, frame):
+            raise TimeoutError("数据获取超时")
+
+        # 设置超时为 5 秒
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(5)
+
+        try:
+            df = data_fetcher.fetch_stock_data(
+                fetch_symbol,
+                start_date=(datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d'),
+                end_date=datetime.now().strftime('%Y-%m-%d')
+            )
+            signal.alarm(0)  # 取消超时
+        except TimeoutError:
+            signal.alarm(0)
+            logger.warning(f"获取 {symbol} 历史数据超时")
+            return {"symbol": symbol, "data": [], "error": "数据获取超时"}
+        except Exception as e:
+            signal.alarm(0)
+            logger.error(f"获取 {symbol} 历史数据失败: {e}")
+            return {"symbol": symbol, "data": [], "error": str(e)}
+
         if df.empty:
             return {"symbol": symbol, "data": []}
 
@@ -438,25 +458,39 @@ async def get_daily_report():
 async def get_news(limit: int = 10):
     """获取新闻摘要"""
     try:
-        from news_scraper import NewsScraper
-        
-        scraper = NewsScraper()
-        news_items = scraper.fetch_latest_news(limit=limit)
-        
+        import asyncio
+        from app.services.news_scraper import NewsScraper
+
+        async def fetch_news():
+            scraper = NewsScraper()
+            return scraper.fetch_latest_news(limit=limit)
+
+        # 添加超时保护 (5秒)
+        try:
+            news_items = await asyncio.wait_for(fetch_news(), timeout=5.0)
+        except asyncio.TimeoutError:
+            logger.warning("新闻获取超时")
+            return {
+                "total": 0,
+                "categorized": {"positive": [], "neutral": [], "negative": []},
+                "error": "新闻获取超时",
+                "fetched_at": datetime.now().isoformat()
+            }
+
         # 分类
         categorized_news = {
             "positive": [],
             "neutral": [],
             "negative": []
         }
-        
+
         for news in news_items:
             sentiment = news.get('sentiment', 'neutral')
             if sentiment in categorized_news:
                 categorized_news[sentiment].append(news)
             else:
                 categorized_news['neutral'].append(news)
-        
+
         return {
             "total": len(news_items),
             "categorized": categorized_news,
@@ -719,7 +753,7 @@ def get_diversified_system():
     global diversified_system
     if diversified_system is None:
         try:
-            from diversified_investment import DiversifiedInvestmentSystem, InvestmentConfig, InvestmentStyle
+            from app.diversified_investment import DiversifiedInvestmentSystem, InvestmentConfig, InvestmentStyle
             config = InvestmentConfig(
                 initial_cash=100000,
                 investment_style=InvestmentStyle.BALANCED,
@@ -783,7 +817,7 @@ async def get_diversified_positions():
 async def get_stock_pool():
     """获取股票池"""
     try:
-        from diversified_investment import STOCK_POOL, Sector
+        from app.diversified_investment import STOCK_POOL, Sector
 
         pool_data = {}
         for sector, stocks in STOCK_POOL.items():
@@ -906,7 +940,7 @@ async def manual_buy(symbol: str, shares: int = Query(..., description="买入�
             return {"error": "系统未初始化"}
 
         # 查找股票信息
-        from diversified_investment import STOCK_POOL, StockInfo, HoldingType
+        from app.diversified_investment import STOCK_POOL, StockInfo, HoldingType
         stock_info = None
         for sector_stocks in STOCK_POOL.values():
             for stock in sector_stocks:

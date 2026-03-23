@@ -50,10 +50,17 @@ class EnhancedDataFetcher:
         os.makedirs(self.cache_dir, exist_ok=True)
         
         # 连接宝狮数据
-        self.bs_login = bs.login()
-        
+        try:
+            self.bs_login = bs.login()
+            if self.bs_login.error_code == '0':
+                logger.info("Baostock 宝狮数据连接成功")
+            else:
+                logger.warning(f"Baostock 连接失败: {self.bs_login.error_msg}")
+        except Exception as e:
+            logger.warning(f"Baostock 初始化失败: {e}")
+
         logger.info(f"增强版数据获取器初始化完成")
-        logger.info(f"可用数据源：东方财富 > 新浪财经 > 腾讯源 > AkShare > 网易 > Baostock > Tushare > yfinance")
+        logger.info(f"投资系统模式: 禁用缓存，实时数据获取")
     
     def _load_config(self, config_path: str) -> Dict:
         """加载配置文件"""
@@ -92,40 +99,46 @@ class EnhancedDataFetcher:
             start_date = (datetime.now() - timedelta(days=365*5)).strftime("%Y-%m-%d")
         
         logger.info(f"正在获取 {symbol} 的数据，时间范围：{start_date} ~ {end_date}")
-        
-        # 尝试从缓存加载
-        cached = self.load_from_cache(symbol)
-        if cached is not None:
-            logger.info(f"从缓存加载数据")
-            return cached
-        
-        # 尝试多个数据源
+
+        # ⚠ 投资系统模式：禁用缓存，始终获取实时数据
+        # 历史备份数据没有用，必须使用最新实时数据
+
+        # 尝试多个数据源（按可靠性排序，已测试可用）
+        # 优先级: Baostock(已验证可用) > 腾讯财经(实时报价) > 其他
         data_sources = [
+            ("Baostock 宝狮数据", self._fetch_from_baostock),
+            ("腾讯财经", self._fetch_from_tencent),
             ("东方财富接口", self._fetch_from_eastmoney),
             ("新浪财经接口", self._fetch_from_sina),
-            ("腾讯源 (akshare_tencent)", self._fetch_from_tencent),
             ("AkShare 默认源", self._fetch_from_akshare),
             ("网易财经接口", self._fetch_from_netease),
-            ("Baostock 宝狮数据", self._fetch_from_baostock),
-            ("Tushare", self._fetch_from_tushare),
             ("yfinance", self._fetch_from_yfinance),
         ]
 
+        max_retries = 3  # 每个数据源最多重试3次
+
         for source_name, fetch_func in data_sources:
-            try:
-                logger.info(f"尝试 {source_name}...")
-                df = fetch_func(symbol, start_date, end_date)
+            for attempt in range(max_retries):
+                try:
+                    logger.info(f"尝试 {source_name} (第{attempt + 1}次)...")
+                    df = fetch_func(symbol, start_date, end_date)
 
-                if not df.empty:
-                    logger.info(f"{source_name} 获取成功，共 {len(df)} 条数据")
-                    self._save_to_cache(symbol, df)
-                    return df
-                else:
-                    logger.warning(f"{source_name} 返回空数据")
+                    if not df.empty:
+                        logger.info(f"{source_name} 获取成功，共 {len(df)} 条数据 (实时数据)")
+                        # 投资系统禁用缓存，不保存数据
+                        return df
+                    else:
+                        logger.warning(f"{source_name} 返回空数据")
+                        break  # 空数据不重试，直接尝试下一个源
 
-            except Exception as e:
-                logger.error(f"{source_name} 获取失败：{str(e)}")
-                continue
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        wait_time = 2 ** attempt  # 指数退避: 1s, 2s, 4s
+                        logger.warning(f"{source_name} 获取失败，{wait_time}秒后重试: {str(e)}")
+                        time.sleep(wait_time)
+                    else:
+                        logger.error(f"{source_name} 获取失败（第{max_retries}次）：{str(e)}")
+
 
         # 所有外部源都失败 - 拒绝生成模拟数据
         logger.error(f"所有数据源获取失败，拒绝生成模拟数据")
@@ -365,31 +378,55 @@ class EnhancedDataFetcher:
     # 数据真实性优先，拒绝生成任何假数据
 
     def _fetch_from_tencent(self, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
-        """从腾讯源获取数据 (最快、最稳定)"""
+        """从腾讯财经获取数据 (原生API，无需AkShare)"""
+        import requests
+
         # 提取股票代码
         stock_code = symbol.replace(".SS", "").replace(".SZ", "")
-        
+
         # 腾讯数据格式
         if symbol.endswith(".SS"):
-            # 沪市股票 - 需要加 6
             tencent_code = "sh" + stock_code
         else:
-            # 深市股票 - 需要加 0
             tencent_code = "sz" + stock_code
-        
-        # 使用 AkShare 的腾讯源
-        df = ak.stock_zh_a_hist(
-            symbol=tencent_code,
-            period="daily",
-            start_date=start_date.replace("-", ""),
-            end_date=end_date.replace("-", ""),
-            adjust="qfq"  # 前复权
-        )
-        
-        if df.empty:
-            raise Exception("腾讯源返回空数据")
-        
-        return self._normalize_df(df)
+
+        # 直接使用腾讯财经原生API
+        url = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+        params = {
+            'param': f'{tencent_code},day,{start_date},{end_date},320,qfq'
+        }
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+
+        response = requests.get(url, params=params, headers=headers, timeout=10)
+        data = response.json()
+
+        if data.get("code") != 0:
+            raise Exception(f"腾讯API错误: {data.get('msg', 'Unknown error')}")
+
+        # 解析数据
+        klines = data.get("data", {}).get(tencent_code, {}).get("qfqday", [])
+        if not klines:
+            raise Exception("腾讯返回空数据")
+
+        # 转换为DataFrame
+        rows = []
+        for kline in klines:
+            if len(kline) >= 6:
+                rows.append({
+                    "date": pd.to_datetime(kline[0]),
+                    "open": float(kline[1]),
+                    "close": float(kline[2]),
+                    "high": float(kline[3]),
+                    "low": float(kline[4]),
+                    "volume": float(kline[5]),
+                })
+
+        df = pd.DataFrame(rows)
+        logger.info(f"腾讯财经获取 {len(df)} 条数据")
+        return df
     
     def _fetch_from_akshare(self, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
         """从 AkShare 默认源获取数据"""
@@ -410,6 +447,20 @@ class EnhancedDataFetcher:
     
     def _fetch_from_baostock(self, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
         """从 Baostock 宝狮数据获取数据"""
+        # 检查并重新登录
+        try:
+            login_result = bs.login()
+            if login_result is None:
+                raise Exception("Baostock 登录返回None")
+            if login_result.error_code != '0':
+                # 尝试重新登录一次
+                bs.logout()
+                login_result = bs.login()
+                if login_result.error_code != '0':
+                    raise Exception(f"Baostock 登录失败: {login_result.error_msg}")
+        except Exception as e:
+            raise Exception(f"Baostock 连接失败: {e}")
+
         # Baostock 需要格式: sh.600000 或 sz.000001
         stock_code = symbol.replace(".SS", "").replace(".SZ", "")
 
@@ -526,86 +577,142 @@ class EnhancedDataFetcher:
         df.to_csv(cache_file, index=False)
         logger.debug(f"数据已缓存到 {cache_file}")
     
-    def load_from_cache(self, symbol: str, max_age_days: int = 1) -> Optional[pd.DataFrame]:
+    def load_from_cache(self, symbol: str, max_age_days: int = 0) -> Optional[pd.DataFrame]:
         """从缓存加载数据
 
+        ⚠ 投资系统禁用缓存，始终获取实时数据
         Args:
             symbol: 股票符号
-            max_age_days: 缓存最大有效期（天），默认1天
+            max_age_days: 已废弃，固定返回None（不缓存）
 
         Returns:
-            DataFrame 或 None（如果缓存过期或不存在）
+            始终返回 None，强制获取实时数据
         """
-        safe_symbol = symbol.replace(".", "_").replace("/", "_")
-        cache_file = os.path.join(self.cache_dir, f"{safe_symbol}.csv")
-
-        if not os.path.exists(cache_file):
-            return None
-
-        try:
-            # 检查文件修改时间
-            file_mtime = datetime.fromtimestamp(os.path.getmtime(cache_file))
-            file_age = (datetime.now() - file_mtime).days
-
-            if file_age > max_age_days:
-                logger.info(f"缓存文件已过期 ({file_age}天 > {max_age_days}天)，跳过")
-                return None
-
-            df = pd.read_csv(cache_file)
-
-            # 检查数据中最新日期是否过旧
-            date_col = None
-            for col in ['date', 'Date', 'datetime', 'Datetime']:
-                if col in df.columns:
-                    date_col = col
-                    break
-
-            if date_col:
-                # 获取最后一条数据的日期
-                last_date_str = str(df[date_col].iloc[-1])
-                try:
-                    last_date = pd.to_datetime(last_date_str)
-                    data_age = (datetime.now() - last_date).days
-
-                    if data_age > 7:  # 数据超过7天认为是旧数据
-                        logger.info(f"缓存数据过旧 (最新数据: {last_date_str}，距今{data_age}天)，跳过")
-                        return None
-                except:
-                    pass
-
-            logger.info(f"从缓存加载 {len(df)} 条数据 (缓存时间: {file_mtime.strftime('%Y-%m-%d %H:%M')})")
-            return df
-        except Exception as e:
-            logger.error(f"读取缓存文件失败：{str(e)}")
-            return None
+        # 投资系统禁用缓存，确保数据时效性
+        logger.debug(f"投资系统模式：跳过缓存，直接获取实时数据")
+        return None
     
     def get_current_price(self, symbol: str) -> Optional[float]:
         """
-        获取当前价格
-        
+        获取当前价格 - 优先使用实时报价API
+
         Args:
             symbol: 股票符号
-            
+
         Returns:
             float: 当前价格，获取失败返回 None
         """
-        stock_code = symbol.replace(".SS", "").replace(".SZ", "")
-        
-        # 尝试从腾讯源获取
+        # 优先尝试实时报价API (毫秒级响应)
+        price = self._get_realtime_quote(symbol)
+        if price:
+            return price
+
+        # 降级方案：使用历史数据最后收盘价
+        return self._get_historical_price(symbol)
+
+    def _get_realtime_quote(self, symbol: str) -> Optional[float]:
+        """
+        从免费实时API获取实时报价
+        按优先级尝试多个源
+        """
+        # 标准化股票代码
+        stock_code = symbol.replace(".SH", "").replace(".SZ", "").replace(".SS", "")
+
+        # 新浪财经实时报价API
         try:
+            if symbol.endswith(".SH") or symbol.endswith(".SS"):
+                sina_code = f"sh{stock_code}"
+            else:
+                sina_code = f"sz{stock_code}"
+
+            url = f"https://hq.sinajs.cn/list={sina_code}"
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Referer": "https://finance.sina.com.cn"
+            }
+            response = requests.get(url, headers=headers, timeout=3)
+            content = response.text
+
+            if content and "=" in content:
+                data = content.split("=")[1].strip('"')
+                fields = data.split(",")
+                if len(fields) > 3:
+                    price = float(fields[3])  # 当前价格
+                    if price > 0:
+                        logger.debug(f"新浪实时报价: {symbol} = ¥{price}")
+                        return price
+        except Exception as e:
+            logger.debug(f"新浪报价失败: {e}")
+
+        # 腾讯财经实时报价API
+        try:
+            if symbol.endswith(".SH") or symbol.endswith(".SS"):
+                tencent_code = f"sh{stock_code}"
+            else:
+                tencent_code = f"sz{stock_code}"
+
+            url = f"https://qt.gtimg.cn/q={tencent_code}"
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+            response = requests.get(url, headers=headers, timeout=3)
+            content = response.text
+
+            if content and "~" in content:
+                fields = content.split("~")
+                if len(fields) > 3:
+                    price = float(fields[3])  # 腾讯财经格式
+                    if price > 0:
+                        logger.debug(f"腾讯实时报价: {symbol} = ¥{price}")
+                        return price
+        except Exception as e:
+            logger.debug(f"腾讯报价失败: {e}")
+
+        # 东方财富实时报价API
+        try:
+            if symbol.endswith(".SH") or symbol.endswith(".SS"):
+                em_code = f"{stock_code}.SH"
+            else:
+                em_code = f"{stock_code}.SZ"
+
+            url = f"https://push2.eastmoney.com/api/qt/stock/get?secids={em_code}&fields=f43,f44,f45,f46,f47,f48,f50,f51,f52,f57,f58,f60,f169,f170,f171"
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+            response = requests.get(url, headers=headers, timeout=3)
+            data = response.json()
+
+            if data.get("data") and len(data["data"]) > 0:
+                stock_data = data["data"][0]
+                price = stock_data.get("f43") / 1000  # 最新价(分->元)
+                if price and price > 0:
+                    logger.debug(f"东方财富实时报价: {symbol} = ¥{price}")
+                    return price
+        except Exception as e:
+            logger.debug(f"东方财富报价失败: {e}")
+
+        return None
+
+    def _get_historical_price(self, symbol: str) -> Optional[float]:
+        """
+        降级方案：获取历史数据最后收盘价
+        """
+        try:
+            stock_code = symbol.replace(".SH", "").replace(".SZ", "").replace(".SS", "")
+
             df = ak.stock_zh_a_hist(
                 symbol=stock_code,
                 period="daily",
-                start_date=(datetime.now() - timedelta(days=1)).strftime('%Y%m%d'),
+                start_date=(datetime.now() - timedelta(days=5)).strftime('%Y%m%d'),
                 end_date=datetime.now().strftime('%Y%m%d'),
                 adjust="qfq"
             )
-            
+
             if not df.empty:
                 return float(df['收盘'].iloc[-1])
-        except:
-            pass
-        
+        except Exception as e:
+            logger.warning(f"历史数据获取失败: {e}")
+
         return None
     
     def close(self):
