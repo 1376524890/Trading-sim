@@ -2,9 +2,94 @@
 from typing import Dict, List, Optional, TYPE_CHECKING
 from datetime import datetime
 from loguru import logger
+from collections import defaultdict
 
 if TYPE_CHECKING:
     from app.diversified_investment import DiversifiedInvestmentSystem, StockInfo, HoldingType, STOCK_POOL, Sector
+
+
+class TokenTracker:
+    """Token使用追踪器"""
+
+    def __init__(self):
+        self.usage_records: List[Dict] = []
+        self.total_tokens = defaultdict(int)
+        self.total_cost = 0.0
+
+        # Token定价 (per 1M tokens)
+        self.pricing = {
+            "gpt-4o": {"input": 2.5, "output": 10.0},
+            "gpt-4o-mini": {"input": 0.15, "output": 0.6},
+            "gpt-4-turbo": {"input": 10.0, "output": 30.0},
+            "gpt-3.5-turbo": {"input": 0.5, "output": 1.5},
+        }
+
+    def record(self, model: str, prompt_tokens: int, completion_tokens: int, raw_response: Dict = None):
+        """记录一次API调用的token使用"""
+        # 计算费用
+        price = self.pricing.get(model, {"input": 0.0, "output": 0.0})
+        input_cost = (prompt_tokens / 1_000_000) * price["input"]
+        output_cost = (completion_tokens / 1_000_000) * price["output"]
+        total_cost = input_cost + output_cost
+
+        record = {
+            "timestamp": datetime.now().isoformat(),
+            "model": model,
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": prompt_tokens + completion_tokens,
+            "input_cost": input_cost,
+            "output_cost": output_cost,
+            "total_cost": total_cost,
+            "raw_response": raw_response
+        }
+
+        self.usage_records.append(record)
+        self.total_tokens["prompt"] += prompt_tokens
+        self.total_tokens["completion"] += completion_tokens
+        self.total_tokens["all"] += prompt_tokens + completion_tokens
+        self.total_cost += total_cost
+
+        # 保持记录在合理范围内
+        if len(self.usage_records) > 500:
+            self.usage_records = self.usage_records[-500:]
+
+    def get_summary(self) -> Dict:
+        """获取使用摘要"""
+        return {
+            "total_calls": len(self.usage_records),
+            "total_tokens": dict(self.total_tokens),
+            "total_cost": self.total_cost,
+            "avg_tokens_per_call": (
+                self.total_tokens["all"] / len(self.usage_records)
+                if self.usage_records else 0
+            ),
+            "avg_cost_per_call": (
+                self.total_cost / len(self.usage_records)
+                if self.usage_records else 0
+            )
+        }
+
+    def get_recent_calls(self, limit: int = 20) -> List[Dict]:
+        """获取最近的API调用记录"""
+        records = self.usage_records[-limit:]
+        return [
+            {
+                "timestamp": r["timestamp"],
+                "model": r["model"],
+                "prompt_tokens": r["prompt_tokens"],
+                "completion_tokens": r["completion_tokens"],
+                "total_tokens": r["total_tokens"],
+                "total_cost": r["total_cost"]
+            }
+            for r in records
+        ]
+
+    def clear(self):
+        """清空记录"""
+        self.usage_records.clear()
+        self.total_tokens.clear()
+        self.total_cost = 0.0
 
 
 class DecisionExecutor:

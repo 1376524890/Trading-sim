@@ -115,11 +115,17 @@ onUnmounted(() => {
                 >
                   新闻
                 </router-link>
-                <router-link 
-                  to="/transactions" 
+                <router-link
+                  to="/transactions"
                   class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors"
                 >
                   记录
+                </router-link>
+                <router-link
+                  to="/agent"
+                  class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors"
+                >
+                  Agent
                 </router-link>
               </div>
             </div>

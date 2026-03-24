@@ -16,7 +16,7 @@ class AgentConfig:
     max_context_tokens: int = 32000  # 最大上下文token数
 
     # Agent行为
-    enabled: bool = False
+    enabled: bool = True
     decision_interval: int = 300
     max_decisions_per_run: int = 5
 

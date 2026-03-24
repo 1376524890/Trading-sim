@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 from app.llm_agent.skill import TradingSkillRegistry
 from app.llm_agent.context import ContextBuilder
-from app.llm_agent.executor import DecisionExecutor
+from app.llm_agent.executor import DecisionExecutor, TokenTracker
 from app.llm_agent.config import AgentConfig
 
 
@@ -50,6 +50,9 @@ class LLMAgentStrategy:
 
         self.decision_history = []
         self.last_decision_time = None
+
+        # Token使用追踪器
+        self.token_tracker = TokenTracker()
 
     def is_available(self) -> bool:
         """检查Agent是否可用"""
@@ -109,6 +112,17 @@ class LLMAgentStrategy:
                 max_tokens=self.config.max_tokens,
                 response_format={"type": "json_object"}
             )
+
+            # 记录token使用
+            usage = response.usage
+            if usage:
+                self.token_tracker.record(
+                    model=self.config.openai_model,
+                    prompt_tokens=usage.prompt_tokens or 0,
+                    completion_tokens=usage.completion_tokens or 0,
+                    raw_response=response.model_dump() if hasattr(response, 'model_dump') else None
+                )
+                logger.info(f"📊 Token使用: prompt={usage.prompt_tokens}, completion={usage.completion_tokens}, total={usage.total_tokens}")
 
             return response.choices[0].message.content
 
@@ -327,6 +341,7 @@ class LLMAgentStrategy:
 
     def get_status(self) -> Dict:
         """获取Agent状态"""
+        token_summary = self.token_tracker.get_summary()
         return {
             "available": self.is_available(),
             "enabled": self.config.enabled,
@@ -334,5 +349,6 @@ class LLMAgentStrategy:
             "temperature": self.config.temperature,
             "last_decision_time": self.last_decision_time.isoformat() if self.last_decision_time else None,
             "decision_history_count": len(self.decision_history),
+            "token_usage": token_summary,
             "config": self.config.to_dict()
         }

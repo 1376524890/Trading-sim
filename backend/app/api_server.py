@@ -1213,6 +1213,62 @@ async def get_agent_history(limit: int = 10):
         return {"success": False, "error": str(e)}
 
 
+@app.get("/api/agent/token-usage")
+async def get_token_usage(limit: int = 20):
+    """获取Token使用统计"""
+    try:
+        system = get_diversified_system()
+        if system is None:
+            return {"error": "系统未初始化"}
+
+        if not hasattr(system, 'llm_agent') or system.llm_agent is None:
+            return {
+                "success": True,
+                "summary": {},
+                "recent_calls": [],
+                "message": "LLM Agent未初始化"
+            }
+
+        # 获取token使用摘要
+        summary = system.llm_agent.token_tracker.get_summary()
+
+        # 获取最近的API调用记录
+        recent_calls = system.llm_agent.token_tracker.get_recent_calls(limit)
+
+        return {
+            "success": True,
+            "summary": summary,
+            "recent_calls": recent_calls
+        }
+    except Exception as e:
+        logger.error(f"获取Token使用失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/agent/token-usage/clear")
+async def clear_token_usage():
+    """清空Token使用记录"""
+    try:
+        system = get_diversified_system()
+        if system is None:
+            return {"error": "系统未初始化"}
+
+        if not hasattr(system, 'llm_agent') or system.llm_agent is None:
+            return {
+                "success": False,
+                "error": "LLM Agent未初始化"
+            }
+
+        system.llm_agent.token_tracker.clear()
+        return {
+            "success": True,
+            "message": "Token使用记录已清空"
+        }
+    except Exception as e:
+        logger.error(f"清空Token使用失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
 # ============ 策略 API ============
 
 @app.post("/api/strategy/run")
