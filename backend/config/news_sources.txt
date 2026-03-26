@@ -1,0 +1,51 @@
+# 财经新闻源配置
+# 格式: 名称 | URL | 类型 | 优先级
+# 类型: main(主站), stock(股票), news(新闻), finance(财经)
+# 优先级: 1-10, 1最高
+
+# 新浪财经
+sina_main|https://finance.sina.com.cn/|main|1
+sina_stock|https://finance.sina.com.cn/stock/|stock|1
+
+# 东方财富
+eastmoney_main|https://finance.eastmoney.com/|main|1
+eastmoney_news|https://news.eastmoney.com/|news|1
+eastmoney_guba|https://guba.eastmoney.com/|stock|2
+
+# 同花顺
+tonghuashun_main|https://www.10jqka.com.cn/|main|1
+tonghuashun_news|https://news.10jqka.com.cn/|news|1
+
+# 腾讯财经
+tencent_finance|https://news.qq.com/ch/finance|finance|1
+
+# 网易财经
+netease_main|https://money.163.com/|main|1
+netease_stock|https://quotes.money.163.com/|stock|2
+
+# 证券时报
+stcn_main|https://stcn.com/|main|1
+stcn_news|https://news.stcn.com/|news|1
+
+# 财新网
+caixin_main|https://www.caixin.com/|main|1
+caixin_finance|https://finance.caixin.com/|finance|1
+
+# 经济观察网
+eeo_main|https://www.eeo.com.cn/|main|2
+
+# 第一财经
+yicai_main|https://www.yicai.com/|main|1
+yicai_finance|https://www.yicai.com/finance/|finance|1
+
+# 每日经济新闻
+nbd_main|https://www.nbd.com.cn/|main|1
+
+# 澎湃新闻
+jiemian_main|https://www.jiemian.com/|main|2
+
+# 21世纪经济报道
+21jingji_main|https://www.21jingji.com/|main|1
+
+# 经济观察报
+jwview_main|https://www.jwview.com/|main|2
