@@ -15,8 +15,16 @@ API 地址：http://localhost:8080
 
 import sys
 import os
-from datetime import datetime, timedelta
 from pathlib import Path
+
+# 启动时加载 .env 文件
+from dotenv import load_dotenv
+env_path = Path(__file__).parent.parent / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
+    print(f"✅ 已加载环境变量: {env_path}")
+
+from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -755,12 +763,19 @@ async def get_backtest_strategies():
 # 多样化投资系统实例
 diversified_system = None
 
-def get_diversified_system(use_llm_agent: bool = False):
+def get_diversified_system(use_llm_agent: bool = None):
     """获取多样化投资系统实例"""
     global diversified_system
     if diversified_system is None:
         try:
             from app.diversified_investment import DiversifiedInvestmentSystem, InvestmentConfig, InvestmentStyle
+            from app.llm_agent.config import AgentConfig
+
+            # 从环境变量读取 Agent 配置，默认根据 AGENT_ENABLED 决定是否启用
+            agent_config = AgentConfig.from_env()
+            if use_llm_agent is None:
+                use_llm_agent = agent_config.enabled
+
             config = InvestmentConfig(
                 initial_cash=100000,
                 investment_style=InvestmentStyle.BALANCED,
@@ -824,10 +839,14 @@ async def get_diversified_positions():
 async def get_stock_pool():
     """获取股票池"""
     try:
-        from app.diversified_investment import STOCK_POOL, Sector
+        from app.diversified_investment import get_cached_stock_pool, Sector
+
+        # 使用扩展股票池（从Baostock获取的5500+只股票）
+        stock_pool = get_cached_stock_pool()
 
         pool_data = {}
-        for sector, stocks in STOCK_POOL.items():
+        total_stocks = 0
+        for sector, stocks in stock_pool.items():
             pool_data[sector.value] = [
                 {
                     "symbol": stock.symbol,
@@ -840,11 +859,12 @@ async def get_stock_pool():
                 }
                 for stock in stocks
             ]
+            total_stocks += len(stocks)
 
         return {
             "success": True,
             "stock_pool": pool_data,
-            "total_stocks": sum(len(stocks) for stocks in STOCK_POOL.values())
+            "total_stocks": total_stocks
         }
     except Exception as e:
         logger.error(f"获取股票池失败: {e}")

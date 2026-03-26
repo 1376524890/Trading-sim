@@ -489,17 +489,31 @@ const technicalIndicators = computed(() => {
 })
 
 // 获取当前可显示的股票列表
+const searchQuery = ref('')
 const availableStocks = computed(() => {
+  let stocks
   if (stockSource.value === 'pool') {
-    return store.stockPool.map(s => ({
+    stocks = store.stockPool.map(s => ({
       symbol: s.symbol,
       name: s.name
     }))
+  } else {
+    stocks = store.holdings.map(h => ({
+      symbol: h.symbol,
+      name: h.name
+    }))
   }
-  return store.holdings.map(h => ({
-    symbol: h.symbol,
-    name: h.name
-  }))
+
+  // 搜索过滤
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.trim().toLowerCase()
+    stocks = stocks.filter(s =>
+      s.symbol.toLowerCase().includes(query) ||
+      s.name.toLowerCase().includes(query)
+    )
+  }
+
+  return stocks
 })
 
 // 板块名称映射
@@ -557,6 +571,17 @@ const formatNumber = (num: number) => {
               全部股票池
             </button>
           </div>
+        </div>
+
+        <!-- 搜索框 -->
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-gray-400">搜索:</span>
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="输入代码或名称搜索..."
+            class="input w-48 text-sm"
+          >
         </div>
 
         <!-- 股票选择 -->

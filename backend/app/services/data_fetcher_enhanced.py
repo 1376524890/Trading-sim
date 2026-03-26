@@ -34,21 +34,29 @@ import time
 class EnhancedDataFetcher:
     """
     增强版数据获取类
-    
+
     支持多种数据源自动切换和降级
     """
-    
+
+    _instance = None  # 单例实例
+    _initialized = False
+
+    def __new__(cls, config_path: str = "config.json"):
+        """单例模式 - 避免重复创建实例"""
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(self, config_path: str = "config.json"):
-        """
-        初始化数据获取器
-        
-        Args:
-            config_path: 配置文件路径
-        """
+        """初始化数据获取器"""
+        # 只初始化一次
+        if EnhancedDataFetcher._initialized:
+            return
+
         self.config = self._load_config(config_path)
         self.cache_dir = self.config.get("data", {}).get("cache_dir", "data")
         os.makedirs(self.cache_dir, exist_ok=True)
-        
+
         # 连接宝狮数据
         try:
             self.bs_login = bs.login()
@@ -61,6 +69,8 @@ class EnhancedDataFetcher:
 
         logger.info(f"增强版数据获取器初始化完成")
         logger.info(f"投资系统模式: 禁用缓存，实时数据获取")
+
+        EnhancedDataFetcher._initialized = True
     
     def _load_config(self, config_path: str) -> Dict:
         """加载配置文件"""

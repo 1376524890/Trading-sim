@@ -68,6 +68,9 @@ class Sector(Enum):
     REAL_ESTATE = "地产"
     UTILITIES = "公用事业"
     COMMUNICATION = "通信"
+    TRANSPORTATION = "交通"
+    AGRICULTURE = "农业"
+    OTHER = "其他"
 
 
 @dataclass
@@ -153,6 +156,182 @@ STOCK_POOL: Dict[Sector, List[StockInfo]] = {
         StockInfo("600588.SS", "用友网络", Sector.TECHNOLOGY, "mid", 0.35, 0.008, False, True),
     ],
 }
+
+
+def get_expanded_stock_pool() -> Dict[Sector, List['StockInfo']]:
+    """从Baostock获取扩展股票池（A股全市场）"""
+    import baostock as bs
+    from loguru import logger
+
+    # 行业映射：Baostock行业 -> 自定义Sector
+    industry_to_sector = {
+        'J66': Sector.FINANCE,
+        'J64': Sector.FINANCE,
+        'J67': Sector.FINANCE,
+        'I63': Sector.TECHNOLOGY,
+        'I64': Sector.TECHNOLOGY,
+        'C39': Sector.TECHNOLOGY,
+        'C40': Sector.TECHNOLOGY,
+        'C35': Sector.TECHNOLOGY,
+        'C30': Sector.TECHNOLOGY,
+        'C29': Sector.TECHNOLOGY,
+        'C27': Sector.CONSUMER,
+        'C20': Sector.CONSUMER,
+        'C19': Sector.CONSUMER,
+        'C18': Sector.CONSUMER,
+        'C17': Sector.CONSUMER,
+        'C15': Sector.CONSUMER,
+        'C14': Sector.CONSUMER,
+        'C13': Sector.CONSUMER,
+        'C21': Sector.CONSUMER,
+        'C26': Sector.CONSUMER,
+        'C28': Sector.CONSUMER,
+        'C22': Sector.CONSUMER,
+        'C23': Sector.CONSUMER,
+        'C24': Sector.CONSUMER,
+        'C25': Sector.CONSUMER,
+        'C31': Sector.TECHNOLOGY,
+        'C32': Sector.TECHNOLOGY,
+        'C33': Sector.TECHNOLOGY,
+        'C34': Sector.TECHNOLOGY,
+        'C36': Sector.TECHNOLOGY,
+        'C37': Sector.TECHNOLOGY,
+        'C38': Sector.TECHNOLOGY,
+        'J62': Sector.UTILITIES,
+        'J65': Sector.UTILITIES,
+        'E47': Sector.ENERGY,
+        'E48': Sector.ENERGY,
+        'E49': Sector.ENERGY,
+        'E50': Sector.ENERGY,
+        'B07': Sector.ENERGY,
+        'B08': Sector.ENERGY,
+        'B09': Sector.ENERGY,
+        'B06': Sector.ENERGY,
+        'A01': Sector.AGRICULTURE,
+        'A02': Sector.AGRICULTURE,
+        'A03': Sector.AGRICULTURE,
+        'A04': Sector.AGRICULTURE,
+        'A05': Sector.AGRICULTURE,
+        'K70': Sector.REAL_ESTATE,
+        'K71': Sector.REAL_ESTATE,
+        'L71': Sector.REAL_ESTATE,
+        'L72': Sector.REAL_ESTATE,
+        'C41': Sector.HEALTHCARE,
+        'C42': Sector.HEALTHCARE,
+        'C43': Sector.HEALTHCARE,
+        'C44': Sector.HEALTHCARE,
+        'C45': Sector.HEALTHCARE,
+        'F51': Sector.MATERIALS,
+        'F52': Sector.MATERIALS,
+        'F53': Sector.MATERIALS,
+        'F54': Sector.MATERIALS,
+        'F55': Sector.MATERIALS,
+        'F56': Sector.MATERIALS,
+        'E44': Sector.INDUSTRIAL,
+        'E45': Sector.INDUSTRIAL,
+        'E46': Sector.INDUSTRIAL,
+        'C46': Sector.INDUSTRIAL,
+        'C48': Sector.INDUSTRIAL,
+        'D45': Sector.COMMUNICATION,
+        'D46': Sector.COMMUNICATION,
+        'D47': Sector.COMMUNICATION,
+        'D48': Sector.COMMUNICATION,
+        'G53': Sector.TRANSPORTATION,
+        'G54': Sector.TRANSPORTATION,
+        'G55': Sector.TRANSPORTATION,
+        'G56': Sector.TRANSPORTATION,
+    }
+
+    stock_pool: Dict[Sector, List[StockInfo]] = {sector: [] for sector in Sector}
+
+    try:
+        lg = bs.login()
+        if lg.error_code != '0':
+            logger.warning(f"Baostock登录失败: {lg.error_msg}, 使用默认股票池")
+            return STOCK_POOL
+
+        # 获取股票行业信息
+        rs = bs.query_stock_industry()
+        if rs.error_code != '0':
+            logger.warning(f"获取行业信息失败: {rs.error_msg}")
+            bs.logout()
+            return STOCK_POOL
+
+        stocks = []
+        while rs.error_code == '0' and rs.next():
+            row = rs.get_row_data()
+            if len(row) >= 4:
+                code = row[1]
+                name = row[2]
+                industry = row[3] if len(row) > 3 else ""
+
+                # 只保留A股（sh/sz开头）
+                if code and (code.startswith('sh.') or code.startswith('sz.')):
+                    # 转换代码格式: sh.600000 -> 600000.SS
+                    if code.startswith('sh.'):
+                        symbol = code[3:] + ".SS"
+                    else:  # sz.
+                        symbol = code[3:] + ".SZ"
+
+                    stocks.append({
+                        'code': code,
+                        'symbol': symbol,
+                        'name': name,
+                        'industry': industry
+                    })
+
+        bs.logout()
+        logger.info(f"从Baostock获取到 {len(stocks)} 只股票")
+
+        # 按行业分类
+        for stock in stocks:
+            industry = stock['industry']
+            # 提取行业代码前3位
+            sector_code = industry[:3] if industry else ""
+            sector = industry_to_sector.get(sector_code, Sector.OTHER)
+
+            # 判断大盘/中盘/小盘
+            if stock['code'].startswith('sh.600') or stock['code'].startswith('sh.601') or stock['code'].startswith('sh.603'):
+                size = "large"
+            elif stock['code'].startswith('sh.688') or stock['code'].startswith('sz.300'):
+                size = "mid"  # 创业板也算中等
+            else:
+                size = "small"
+
+            stock_info = StockInfo(
+                symbol=stock['symbol'],
+                name=stock['name'],
+                sector=sector,
+                market_cap=size,
+                volatility=0.02,
+                dividend_yield=0.02,
+                is_blue_chip=size == "large",
+                is_growth=size != "large"
+            )
+            stock_pool[sector].append(stock_info)
+
+        # 统计各板块数量
+        for sector, stocks_list in stock_pool.items():
+            if stocks_list:
+                logger.info(f"  {sector.value}: {len(stocks_list)} 只")
+
+        return stock_pool
+
+    except Exception as e:
+        logger.warning(f"获取扩展股票池失败: {e}, 使用默认股票池")
+        return STOCK_POOL
+
+
+# 全局扩展股票池缓存
+_expanded_stock_pool = None
+
+
+def get_cached_stock_pool() -> Dict[Sector, List[StockInfo]]:
+    """获取缓存的扩展股票池"""
+    global _expanded_stock_pool
+    if _expanded_stock_pool is None:
+        _expanded_stock_pool = get_expanded_stock_pool()
+    return _expanded_stock_pool
 
 
 @dataclass
@@ -266,6 +445,10 @@ class DiversifiedInvestmentSystem:
         self.trade_history: List[dict] = []
         self.behavior = HumanInvestorBehavior(self.config)
 
+        # 价格缓存 (60秒TTL)
+        self._price_cache: Dict[str, tuple] = {}  # {symbol: (price, timestamp)}
+        self._price_cache_ttl = 60
+
         # LLM Agent 策略
         self.use_llm_agent = use_llm_agent
         self.llm_agent = None
@@ -356,7 +539,17 @@ class DiversifiedInvestmentSystem:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
     def get_stock_price(self, symbol: str) -> float:
-        """获取股票价格 - 使用增强版数据获取器"""
+        """获取股票价格 - 使用缓存和增强版数据获取器"""
+        import time
+
+        # 检查缓存
+        now = time.time()
+        if symbol in self._price_cache:
+            price, timestamp = self._price_cache[symbol]
+            if now - timestamp < self._price_cache_ttl:
+                logger.debug(f"{symbol} 使用缓存价格: ¥{price:.2f}")
+                return price
+
         from app.services.data_fetcher_enhanced import EnhancedDataFetcher
 
         manager = EnhancedDataFetcher()
@@ -370,6 +563,10 @@ class DiversifiedInvestmentSystem:
                 else:
                     raise ValueError(f"无法获取 {symbol} 价格")
             logger.debug(f"{symbol} 真实价格: ¥{price:.2f}")
+
+            # 更新缓存
+            self._price_cache[symbol] = (price, now)
+
             return price
         except Exception as e:
             logger.error(f"无法获取 {symbol} 真实价格: {e}")
@@ -377,9 +574,6 @@ class DiversifiedInvestmentSystem:
             if symbol in self.positions:
                 return self.positions[symbol].current_price or self.positions[symbol].avg_cost
             raise ValueError(f"无法获取 {symbol} 的真实价格，请检查数据源")
-        finally:
-            if hasattr(manager, 'close'):
-                manager.close()
 
     def get_total_equity(self) -> float:
         """计算总权益"""
@@ -452,8 +646,11 @@ class DiversifiedInvestmentSystem:
         for pos in self.positions.values():
             sector_values[pos.sector] = sector_values.get(pos.sector, 0) + pos.shares * self.get_stock_price(pos.symbol)
 
+        # 使用扩展股票池
+        stock_pool = get_cached_stock_pool()
+
         # 遍历所有板块和股票
-        for sector, stocks in STOCK_POOL.items():
+        for sector, stocks in stock_pool.items():
             current_sector_value = sector_values.get(sector, 0)
             sector_limit = total_equity * self.config.max_position_per_sector
 
