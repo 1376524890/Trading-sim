@@ -184,7 +184,7 @@ const handleCheckStopLoss = () => handleOperation(store.checkStopLoss, '检查�
           </div>
           <div class="bg-gray-700/50 rounded-lg p-3">
             <div class="text-gray-400">总收益</div>
-            <div class="text-lg font-bold" :class="store.stats.totalGain >= 0 ? 'text-green-400' : 'text-red-400'">
+            <div class="text-lg font-bold" :class="store.stats.totalGain >= 0 ? 'text-red-400' : 'text-green-400'">
               {{ store.stats.totalGain >= 0 ? '+' : '' }}{{ formattedNumber(store.stats.totalGain) }}
             </div>
           </div>
@@ -208,10 +208,10 @@ const handleCheckStopLoss = () => handleOperation(store.checkStopLoss, '检查�
       
       <div class="stat-card">
         <p class="stat-label">总盈亏</p>
-        <p class="stat-value" :class="portfolioStats.totalGain >= 0 ? 'text-green-400' : 'text-red-400'">
+        <p class="stat-value" :class="portfolioStats.totalGain >= 0 ? 'text-red-400' : 'text-green-400'">
           {{ portfolioStats.totalGain >= 0 ? '+' : '' }}{{ formattedNumber(portfolioStats.totalGain) }}
         </p>
-        <p class="text-sm" :class="portfolioStats.gainPercent >= 0 ? 'text-green-400' : 'text-red-400'">
+        <p class="text-sm" :class="portfolioStats.gainPercent >= 0 ? 'text-red-400' : 'text-green-400'">
           {{ portfolioStats.gainPercent >= 0 ? '+' : '' }}{{ portfolioStats.gainPercent.toFixed(2) }}%
         </p>
       </div>
@@ -267,21 +267,21 @@ const handleCheckStopLoss = () => handleOperation(store.checkStopLoss, '检查�
               <td class="py-4 text-right">{{ formattedNumber(holding.currentPrice) }}</td>
               <td class="py-4 text-right">{{ formattedNumber(holding.marketValue) }}</td>
               <td class="py-4 text-right">
-                <span :class="holding.gainLoss >= 0 ? 'text-green-400' : 'text-red-400'" class="font-medium">
+                <span :class="holding.gainLoss >= 0 ? 'text-red-400' : 'text-green-400'" class="font-medium">
                   {{ holding.gainLoss >= 0 ? '+' : '' }}{{ formattedNumber(holding.gainLoss) }}
                 </span>
               </td>
               <td class="py-4 text-right">
-                <span :class="holding.gainLossPercent >= 0 ? 'text-green-400' : 'text-red-400'" class="font-medium">
+                <span :class="holding.gainLossPercent >= 0 ? 'text-red-400' : 'text-green-400'" class="font-medium">
                   {{ holding.gainLossPercent >= 0 ? '+' : '' }}{{ holding.gainLossPercent.toFixed(2) }}%
                 </span>
               </td>
               <td class="py-4 text-right">
                 <div class="flex items-center justify-end space-x-2">
                   <div class="w-16 bg-gray-700 rounded-full h-1.5">
-                    <div 
-                      class="h-1.5 rounded-full" 
-                      :class="holding.gainLossPercent >= 0 ? 'bg-green-500' : 'bg-red-500'"
+                    <div
+                      class="h-1.5 rounded-full"
+                      :class="holding.gainLossPercent >= 0 ? 'bg-red-500' : 'bg-green-500'"
                       :style="{ width: `${Math.min(Math.abs(holding.gainLossPercent), 100)}%` }"
                     ></div>
                   </div>
@@ -318,7 +318,7 @@ const handleCheckStopLoss = () => handleOperation(store.checkStopLoss, '检查�
             </div>
             <div class="text-right">
               <div class="font-medium text-white">{{ stock.allocation }}%</div>
-              <div :class="stock.change >= 0 ? 'text-green-400' : 'text-red-400'" class="text-sm">
+              <div :class="stock.change >= 0 ? 'text-red-400' : 'text-green-400'" class="text-sm">
                 {{ stock.change >= 0 ? '+' : '' }}{{ stock.change.toFixed(2) }}%
               </div>
             </div>

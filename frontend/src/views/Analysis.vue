@@ -90,7 +90,7 @@ const marketSentiment = computed(() => store.marketSentiment)
         <div class="flex items-center mb-3">
           <span class="text-sm text-gray-400">月度收益</span>
         </div>
-        <div class="text-2xl font-bold text-green-400">+{{ performanceMetrics.monthlyReturn.toFixed(2) }}%</div>
+        <div class="text-2xl font-bold text-red-400">+{{ performanceMetrics.monthlyReturn.toFixed(2) }}%</div>
         <div class="text-xs text-gray-500 mt-1">近 30 天</div>
       </div>
 

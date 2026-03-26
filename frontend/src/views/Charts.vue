@@ -170,7 +170,7 @@ const calculateMACD = (data: KLineData[]): {
     histogram.push({
       time: data[i].date as Time,
       value: macdValue,
-      color: macdValue >= 0 ? '#22c55e' : '#ef4444'
+      color: macdValue >= 0 ? '#ef4444' : '#22c55e'  // A股：多头红色，空头绿色
     })
   }
 
@@ -285,12 +285,12 @@ const initCharts = () => {
   }))
 
   candlestickSeries = mainChart.addSeries(CandlestickSeries, {
-    upColor: '#22c55e',
-    downColor: '#ef4444',
-    borderUpColor: '#22c55e',
-    borderDownColor: '#ef4444',
-    wickUpColor: '#22c55e',
-    wickDownColor: '#ef4444',
+    upColor: '#ef4444',      // A股：涨-红色
+    downColor: '#22c55e',    // A股：跌-绿色
+    borderUpColor: '#ef4444',
+    borderDownColor: '#22c55e',
+    wickUpColor: '#ef4444',
+    wickDownColor: '#22c55e',
   })
   candlestickSeries.setData(candleData)
 
@@ -348,7 +348,7 @@ const initCharts = () => {
     const volumeData: HistogramData<Time>[] = klineHistory.value.map((d, i) => ({
       time: d.date as Time,
       value: d.volume,
-      color: d.close >= (klineHistory.value[i - 1]?.close || d.open) ? '#22c55e80' : '#ef444480',
+      color: d.close >= (klineHistory.value[i - 1]?.close || d.open) ? '#ef444480' : '#22c55e80',  // A股：涨红跌绿
     }))
 
     volumeSeries = volumeChart.addSeries(HistogramSeries, {
@@ -775,10 +775,10 @@ const formatNumber = (num: number) => {
         <div class="text-sm text-gray-400 space-y-2">
           <p><span class="text-blue-400">DIF线</span>: 快线(EMA12-EMA26)</p>
           <p><span class="text-yellow-400">DEA线</span>: 慢线(DIF的9日EMA)</p>
-          <p><span class="text-green-400">红柱</span>: DIF > DEA，多头信号</p>
-          <p><span class="text-red-400">绿柱</span>: DIF < DEA，空头信号</p>
+          <p><span class="text-red-400">红柱</span>: DIF > DEA，多头信号</p>
+          <p><span class="text-green-400">绿柱</span>: DIF < DEA，空头信号</p>
           <p class="text-primary-400 mt-2">零轴上方: 多头市场</p>
-          <p class="text-red-400">零轴下方: 空头市场</p>
+          <p class="text-green-400">零轴下方: 空头市场</p>
         </div>
       </div>
 

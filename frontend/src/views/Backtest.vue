@@ -155,12 +155,12 @@ onMounted(() => {
         <div class="flex items-center justify-between mb-2">
           <div>
             <div class="text-sm text-gray-400">平均收益率</div>
-            <div class="text-2xl font-bold" :class="stats.avgReturn >= 0 ? 'text-green-400' : 'text-red-400'">
+            <div class="text-2xl font-bold" :class="stats.avgReturn >= 0 ? 'text-red-400' : 'text-green-400'">
               {{ stats.avgReturn >= 0 ? '+' : '' }}{{ formattedPercent(stats.avgReturn) }}
             </div>
           </div>
-          <div class="p-3 bg-green-900/50 rounded-lg">
-            <ArrowTrendingUpIcon class="w-6 h-6 text-green-400" />
+          <div class="p-3 bg-red-900/50 rounded-lg">
+            <ArrowTrendingUpIcon class="w-6 h-6 text-red-400" />
           </div>
         </div>
       </div>
@@ -313,7 +313,7 @@ onMounted(() => {
               </td>
               <td class="py-4 text-right">
                 <span
-                  :class="result.total_return >= 0 ? 'text-green-400' : 'text-red-400'"
+                  :class="result.total_return >= 0 ? 'text-red-400' : 'text-green-400'"
                   class="font-medium"
                 >
                   {{ result.total_return >= 0 ? '+' : '' }}{{ formattedPercent(result.total_return) }}

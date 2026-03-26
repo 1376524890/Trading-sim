@@ -61,15 +61,15 @@ const formatDate = (date: Date) => {
         <div class="flex items-center justify-between mb-4">
           <div>
             <p class="stat-label">总权益</p>
-            <p class="stat-value text-green-400">{{ formattedNumber(stats.totalEquity) }}</p>
+            <p class="stat-value text-red-400">{{ formattedNumber(stats.totalEquity) }}</p>
           </div>
-          <div class="p-3 bg-green-900/50 rounded-lg">
-            <CurrencyDollarIcon class="w-8 h-8 text-green-400" />
+          <div class="p-3 bg-red-900/50 rounded-lg">
+            <CurrencyDollarIcon class="w-8 h-8 text-red-400" />
           </div>
         </div>
         <div class="flex items-center">
-          <ArrowUpIcon class="w-5 h-5 text-green-400 mr-1" />
-          <span class="text-green-400 text-sm font-medium">+{{ formatPercent(stats.dayGainPercent) }}</span>
+          <ArrowUpIcon class="w-5 h-5 text-red-400 mr-1" />
+          <span class="text-red-400 text-sm font-medium">+{{ formatPercent(stats.dayGainPercent) }}</span>
           <span class="text-gray-400 text-sm ml-2">今日</span>
         </div>
       </div>
@@ -95,15 +95,15 @@ const formatDate = (date: Date) => {
         <div class="flex items-center justify-between mb-4">
           <div>
             <p class="stat-label">总盈亏</p>
-            <p class="stat-value text-green-400">{{ formattedNumber(stats.totalGain) }}</p>
+            <p class="stat-value text-red-400">{{ formattedNumber(stats.totalGain) }}</p>
           </div>
-          <div class="p-3 bg-green-900/50 rounded-lg">
-            <ChartBarIcon class="w-8 h-8 text-green-400" />
+          <div class="p-3 bg-red-900/50 rounded-lg">
+            <ChartBarIcon class="w-8 h-8 text-red-400" />
           </div>
         </div>
         <div class="flex items-center">
-          <ArrowUpIcon class="w-5 h-5 text-green-400 mr-1" />
-          <span class="text-green-400 text-sm font-medium">+{{ formatPercent(stats.totalGainPercent) }}</span>
+          <ArrowUpIcon class="w-5 h-5 text-red-400 mr-1" />
+          <span class="text-red-400 text-sm font-medium">+{{ formatPercent(stats.totalGainPercent) }}</span>
           <span class="text-gray-400 text-sm ml-2">累计</span>
         </div>
       </div>
@@ -162,10 +162,10 @@ const formatDate = (date: Date) => {
                 <td class="py-4 text-right">{{ formattedNumber(holding.currentPrice) }}</td>
                 <td class="py-4 text-right">{{ formattedNumber(holding.marketValue) }}</td>
                 <td class="py-4 text-right">
-                  <span :class="holding.gainLoss >= 0 ? 'text-green-400' : 'text-red-400'" class="font-medium">
+                  <span :class="holding.gainLoss >= 0 ? 'text-red-400' : 'text-green-400'" class="font-medium">
                     {{ holding.gainLoss >= 0 ? '+' : '' }}{{ formattedNumber(holding.gainLoss) }}
                   </span>
-                  <div :class="holding.gainLossPercent >= 0 ? 'text-green-400' : 'text-red-400'" class="text-xs">
+                  <div :class="holding.gainLossPercent >= 0 ? 'text-red-400' : 'text-green-400'" class="text-xs">
                     {{ holding.gainLossPercent >= 0 ? '+' : '' }}{{ holding.gainLossPercent.toFixed(2) }}%
                   </div>
                 </td>
@@ -221,9 +221,9 @@ const formatDate = (date: Date) => {
             <div class="flex items-center justify-between">
               <div>
                 <div class="font-medium text-white">{{ topGainer?.symbol }}</div>
-                <div class="text-sm text-green-400">+{{ topGainer?.gainLossPercent.toFixed(2) }}%</div>
+                <div class="text-sm text-red-400">+{{ topGainer?.gainLossPercent.toFixed(2) }}%</div>
               </div>
-              <ArrowUpIcon class="w-5 h-5 text-green-400" />
+              <ArrowUpIcon class="w-5 h-5 text-red-400" />
             </div>
           </div>
 
@@ -233,9 +233,9 @@ const formatDate = (date: Date) => {
             <div class="flex items-center justify-between">
               <div>
                 <div class="font-medium text-white">{{ topLoser?.symbol }}</div>
-                <div class="text-sm text-red-400">{{ topLoser?.gainLossPercent.toFixed(2) }}%</div>
+                <div class="text-sm text-green-400">{{ topLoser?.gainLossPercent.toFixed(2) }}%</div>
               </div>
-              <ArrowDownIcon class="w-5 h-5 text-red-400" />
+              <ArrowDownIcon class="w-5 h-5 text-green-400" />
             </div>
           </div>
         </div>
@@ -293,8 +293,8 @@ const formatDate = (date: Date) => {
           >
             <div class="flex items-start justify-between mb-2">
               <span :class="{
-                'text-green-400': article.sentiment === 'positive',
-                'text-red-400': article.sentiment === 'negative',
+                'text-red-400': article.sentiment === 'positive',
+                'text-green-400': article.sentiment === 'negative',
                 'text-gray-400': article.sentiment === 'neutral'
               }" class="text-xs px-2 py-1 rounded-full capitalize">
                 {{ article.sentiment === 'positive' ? '利好' : article.sentiment === 'negative' ? '利空' : '中性' }}

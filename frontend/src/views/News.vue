@@ -84,14 +84,14 @@ const sentimentCounts = computed(() => ({
         <div class="flex items-center justify-between">
           <div>
             <div class="text-sm text-gray-400">利好消息</div>
-            <div class="text-2xl font-bold text-green-400">{{ sentimentCounts.positive }}</div>
+            <div class="text-2xl font-bold text-red-400">{{ sentimentCounts.positive }}</div>
           </div>
-          <div class="p-3 bg-green-900/50 rounded-lg">
+          <div class="p-3 bg-red-900/50 rounded-lg">
             <span class="text-2xl">📈</span>
           </div>
         </div>
       </div>
-      
+
       <div class="stat-card">
         <div class="flex items-center justify-between">
           <div>
@@ -103,14 +103,14 @@ const sentimentCounts = computed(() => ({
           </div>
         </div>
       </div>
-      
+
       <div class="stat-card">
         <div class="flex items-center justify-between">
           <div>
             <div class="text-sm text-gray-400">利空消息</div>
-            <div class="text-2xl font-bold text-red-400">{{ sentimentCounts.negative }}</div>
+            <div class="text-2xl font-bold text-green-400">{{ sentimentCounts.negative }}</div>
           </div>
-          <div class="p-3 bg-red-900/50 rounded-lg">
+          <div class="p-3 bg-green-900/50 rounded-lg">
             <span class="text-2xl">📉</span>
           </div>
         </div>
