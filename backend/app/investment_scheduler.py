@@ -46,6 +46,14 @@ logger.add(sink=sys.stderr, level="INFO")
 
 # 检查是否启用LLM Agent
 AGENT_ENABLED = os.getenv("AGENT_ENABLED", "false").lower() == "true"
+AGENT_DECISION_INTERVAL = int(os.getenv("AGENT_DECISION_INTERVAL", "300"))  # 秒
+
+
+def get_scheduler_interval() -> int:
+    """获取调度间隔（秒）"""
+    # 使用Agent决策间隔，限制范围
+    interval = AGENT_DECISION_INTERVAL
+    return max(60, min(3600, interval))
 
 
 def get_system(use_agent: bool = None):
@@ -193,25 +201,28 @@ def run_with_schedule():
     """使用定时调度运行"""
     import schedule
 
+    interval_seconds = get_scheduler_interval()
+    interval_minutes = interval_seconds / 60
+
     logger.info("=" * 60)
     logger.info("📈 多样化投资调度器启动")
     logger.info("=" * 60)
     logger.info(f"LLM Agent: {'已启用' if AGENT_ENABLED else '未启用'}")
+    logger.info(f"调度间隔: {interval_seconds}秒 ({interval_minutes}分钟)")
     logger.info("")
     logger.info("定时任务配置:")
-    logger.info("  - 每30分钟: 持仓检查 (止损止盈)")
-    logger.info("  - 每1小时: LLM Agent决策")
-    logger.info("  - 每2小时: 调仓检查")
+    logger.info(f"  - 每 {interval_minutes} 分钟: 持仓检查 + Agent决策")
+    logger.info("  - 每 2 小时: 调仓检查")
     logger.info("  - 每日 12:30: 生成日报")
     logger.info("  - 每日 15:30: 完整投资流程")
     logger.info("  - 每日 20:00: 晚间调仓")
     logger.info("=" * 60)
 
-    # 配置定时任务
-    schedule.every(30).minutes.do(check_positions_task)
+    # 配置定时任务 - 使用Agent配置的间隔
+    schedule.every(interval_seconds).seconds.do(check_positions_task)
 
     if AGENT_ENABLED:
-        schedule.every(1).hours.do(agent_decision_task)
+        schedule.every(interval_seconds).seconds.do(agent_decision_task)
 
     schedule.every(2).hours.do(rebalance_task)
     schedule.every().day.at("12:30").do(daily_report_task)
@@ -229,7 +240,7 @@ def run_with_schedule():
     while True:
         try:
             schedule.run_pending()
-            time.sleep(60)
+            time.sleep(1)  # 每秒检查一次
         except KeyboardInterrupt:
             logger.info("调度器停止")
             break
