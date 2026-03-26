@@ -2,13 +2,17 @@
 
 A professional stock investment simulation and analysis system with intelligent portfolio management, technical analysis, and automated trading strategies.
 
+> **Live Demo**: [stock.plk161211.top](https://stock.plk161211.top)
+
 ## Features
 
 - **Multi-strategy Investment System** - Long-term, mid-term, and short-term investment strategies
 - **Real-time Portfolio Management** - Track positions, P&L, and portfolio allocation
 - **Technical Analysis** - Professional K-line charts with MA, MACD, RSI indicators
 - **Automated Trading** - Stop-loss, take-profit, and rebalancing automation
+- **LLM Agent Integration** - AI-powered intelligent investment decisions
 - **Multiple Data Sources** - Support for 8+ data providers with automatic fallback
+- **Strategy Backtesting** - Validate strategies with historical data
 - **Modern Web Interface** - Vue 3 + TypeScript + Tailwind CSS frontend
 
 ## Tech Stack
@@ -133,6 +137,64 @@ The system supports professional technical analysis:
 - **MACD** - DIF, DEA, MACD histogram
 - **RSI (14)** - Relative Strength Index
 - **Volume Analysis** - Volume bars with price correlation
+
+## LLM Agent Integration
+
+The system supports AI-powered investment decisions through LLM Agent:
+
+```bash
+# .env configuration
+AGENT_ENABLED=true
+OPENAI_API_KEY=your_api_key
+OPENAI_BASE_URL=https://api.openai.com/v1  # Optional, for custom LLM services
+OPENAI_MODEL=gpt-4
+```
+
+Agent Features:
+- Intelligent market analysis
+- Automatic trading decision generation
+- Token usage tracking
+- Decision history logging
+
+## Backtesting Strategies
+
+Built-in backtesting strategies:
+
+1. **MA Cross Strategy** - Buy when short MA crosses above long MA
+2. **Buy & Hold Strategy** - Simple buy and hold without rebalancing
+3. **RSI Mean Reversion** - Trade based on RSI overbought/oversold signals
+
+## Data Sources
+
+The system supports multiple data sources with automatic fallback:
+
+1. Akshare (Primary)
+2. Baostock
+3. Tushare
+4. Yahoo Finance
+5. Sina Finance
+6. East Money
+7. Tencent Finance
+8. NetEase Finance
+
+## Pages Overview
+
+| Page | Description |
+|------|-------------|
+| Overview | Portfolio summary, key metrics, risk analysis |
+| Portfolio | Position details, asset allocation, trading operations |
+| Charts | K-line charts, technical indicators, volume analysis |
+| Analysis | Performance metrics, risk assessment, return statistics |
+| Backtest | Strategy backtesting, parameter configuration |
+| News | Market news, sentiment analysis |
+| Transactions | Trade history, execution details |
+| Agent | LLM Agent status, decision history, token usage |
+
+## Live Demo
+
+The system is deployed and accessible online:
+
+**URL**: [stock.plk161211.top](https://stock.plk161211.top)
 
 ## Configuration
 
