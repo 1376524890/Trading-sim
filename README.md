@@ -1,226 +1,412 @@
-# Stock Investment System
+# 股票投资模拟系统
 
-A professional stock investment simulation and analysis system with intelligent portfolio management, technical analysis, and automated trading strategies.
+一个专业的股票投资模拟与分析系统，具备智能投资组合管理、技术分析和自动化交易策略功能。
 
-> **Live Demo**: [stock.plk161211.top](https://stock.plk161211.top)
+> 在线演示: [stock.plk161211.top](https://stock.plk161211.top)
 
-## Features
+## 功能特性
 
-- **Multi-strategy Investment System** - Long-term, mid-term, and short-term investment strategies
-- **Real-time Portfolio Management** - Track positions, P&L, and portfolio allocation
-- **Technical Analysis** - Professional K-line charts with MA, MACD, RSI indicators
-- **Automated Trading** - Stop-loss, take-profit, and rebalancing automation
-- **LLM Agent Integration** - AI-powered intelligent investment decisions
-- **Multiple Data Sources** - Support for 8+ data providers with automatic fallback
-- **Strategy Backtesting** - Validate strategies with historical data
-- **Modern Web Interface** - Vue 3 + TypeScript + Tailwind CSS frontend
+- **多策略投资系统** - 支持长线、中线、短线三种投资策略
+- **实时投资组合管理** - 追踪持仓、盈亏、资产配置
+- **技术分析** - 专业K线图表，支持MA、MACD、RSI指标
+- **自动化交易** - 止损、止盈、自动调仓
+- **LLM Agent智能决策** - 基于大语言模型的智能投资决策
+- **多数据源支持** - 支持8+数据源自动切换
+- **策略回测** - 历史数据回测验证策略效果
+- **现代Web界面** - Vue 3 + TypeScript + Tailwind CSS
 
-## Tech Stack
+## 投资决策工作流
 
-### Backend
+系统采用**探索-决策-评估**三步循环的专业投资决策流程，LLM Agent可根据市场情况自主选择合适的分析技能进行决策。
+
+### 工作流程图
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        投资决策三步循环                                        │
+│                    Investment Decision Cycle                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    ┌──────────────────────────────────────────────────────────────────────┐
+    │                         🔄 循环迭代                                    │
+    │                                                                      │
+    │   ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐│
+    │   │                 │     │                 │     │                 ││
+    │   │   🔍 探索阶段    │────▶│   🎯 决策阶段    │────▶│   📊 评估阶段    ││
+    │   │   EXPLORE       │     │   DECIDE        │     │   EVALUATE      ││
+    │   │                 │     │                 │     │                 ││
+    │   └─────────────────┘     └─────────────────┘     └─────────────────┘│
+    │          │                       │                       │          │
+    │          ▼                       ▼                       ▼          │
+    │   ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐│
+    │   │ • market_scan   │     │ • buy           │     │ • performance   ││
+    │   │ • fundamental   │     │ • sell          │     │   _review       ││
+    │   │   _analysis     │     │ • hold          │     │ • risk          ││
+    │   │ • technical     │     │ • rebalance     │     │   _assessment   ││
+    │   │   _analysis     │     │ • position      │     │ • portfolio     ││
+    │   │ • news_sentiment│     │   _sizing       │     │   _analysis     ││
+    │   │ • capital_flow  │     │                 │     │ • stop_loss     ││
+    │   │ • sector        │     │                 │     │   _check        ││
+    │   │   _rotation     │     │                 │     │ • take_profit   ││
+    │   └─────────────────┘     └─────────────────┘     │   _check        ││
+    │                                                   └─────────────────┘│
+    │                                                                      │
+    └──────────────────────────────────────────────────────────────────────┘
+```
+
+### 阶段详解
+
+#### 🔍 探索阶段 (Explore Phase)
+
+**目标**: 全面了解市场环境，识别投资机会与风险
+
+| Skill | 名称 | 描述 | 输出 |
+|-------|------|------|------|
+| `market_scan` | 市场扫描 | 扫描市场整体行情、指数走势、涨跌分布 | 指数数据、市场宽度、热点板块 |
+| `fundamental_analysis` | 基本面分析 | 分析PE/PB/ROE/营收增长等财务指标 | 估值、盈利能力、成长性 |
+| `technical_analysis` | 技术面分析 | 分析均线、MACD、RSI、成交量形态 | 趋势、信号、支撑阻力 |
+| `news_sentiment` | 新闻情绪分析 | 分析市场新闻情绪和关键事件 | 情绪得分、风险预警 |
+| `capital_flow` | 资金流向分析 | 追踪主力资金、北向资金动向 | 净流入、板块资金流 |
+| `sector_rotation` | 板块轮动分析 | 分析板块轮动和相对强弱 | 热点板块、轮动信号 |
+
+#### 🎯 决策阶段 (Decide Phase)
+
+**目标**: 基于探索结果做出最优交易决策
+
+| Skill | 名称 | 描述 | 参数 |
+|-------|------|------|------|
+| `buy` | 买入决策 | 建立新仓位或加仓 | symbol, shares, holding_type, confidence |
+| `sell` | 卖出决策 | 减仓或清仓 | symbol, shares, confidence |
+| `hold` | 持有观望 | 保持当前仓位 | confidence, watch_list |
+| `rebalance` | 调仓决策 | 调整持仓比例优化组合 | adjustments, confidence |
+| `position_sizing` | 仓位管理 | 确定合适的仓位规模 | method, risk_tolerance |
+
+#### 📊 评估阶段 (Evaluate Phase)
+
+**目标**: 总结经验教训，持续改进投资策略
+
+| Skill | 名称 | 描述 | 输出 |
+|-------|------|------|------|
+| `performance_review` | 绩效回顾 | 计算收益率、夏普比率、最大回撤 | 收益归因、风险调整收益 |
+| `risk_assessment` | 风险评估 | 评估市场风险、集中度风险 | VaR、风险评分 |
+| `portfolio_analysis` | 组合分析 | 分析资产配置、行业分布 | 分散度评分、风格暴露 |
+| `stop_loss_check` | 止损检查 | 检查是否触发止损条件 | 触发持仓、建议操作 |
+| `take_profit_check` | 止盈检查 | 检查是否触发止盈条件 | 触发持仓、潜在收益 |
+
+### 循环迭代机制
+
+每个三步循环完成后，系统会：
+1. **记录决策**: 保存本轮决策过程和结果
+2. **更新状态**: 更新持仓、资金、风险评估状态
+3. **触发下一轮**: 根据调度器配置自动启动下一轮循环
+4. **持续优化**: 基于评估结果优化后续决策策略
+
+### 工作流API接口
+
+```bash
+# 获取工作流描述
+GET /api/agent/workflow
+
+# 获取指定阶段的Skills
+GET /api/agent/workflow/skills/{phase}  # phase: explore, decide, evaluate
+
+# 运行完整循环
+POST /api/agent/workflow/run-cycle
+
+# 获取所有Skills
+GET /api/agent/skills
+```
+
+## 技术栈
+
+### 后端
 - Python 3.10+
 - FastAPI
 - Pandas / NumPy
 - Loguru
+- OpenAI API (LLM Agent)
 
-### Frontend
+### 前端
 - Vue 3 + TypeScript
 - Tailwind CSS
 - Lightweight Charts (TradingView)
-- Pinia
+- Pinia 状态管理
+- Vue Router
 
-## Quick Start
+## 快速开始
 
-### Prerequisites
+### 环境要求
 - Python 3.10+
 - Node.js 18+
-- pnpm / npm
+- npm / pnpm
 
-### Backend Setup
+### 后端启动
 
 ```bash
 cd backend
 
-# Create virtual environment
+# 创建虚拟环境
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
-# or .\venv\Scripts\activate on Windows
+# 或 Windows: .\venv\Scripts\activate
 
-# Install dependencies
+# 安装依赖
 pip install -r requirements.txt
 
-# Start API server
+# 启动API服务
 python app/api_server.py
 ```
 
-API will be available at `http://localhost:8080`
+后端API运行在 `http://localhost:8080`
 
-### Frontend Setup
+### 前端启动
 
 ```bash
 cd frontend
 
-# Install dependencies
+# 安装依赖
 npm install
 
-# Development server
+# 开发模式
 npm run dev
 
-# Production build
+# 生产构建
 npm run build
 ```
 
-Frontend will be available at `http://localhost:3000`
+前端运行在 `http://localhost:3000`
 
-## Project Structure
+### 一键启动脚本
+
+```bash
+./start.sh [命令]
+
+可用命令:
+  setup           - 完整环境设置（检查 + 安装所有依赖）
+  backend         - 启动后端 API 服务
+  frontend        - 启动前端开发服务器
+  all             - 启动全部服务
+  restart         - 重启所有服务
+  stop            - 停止所有服务
+  status          - 查看服务状态
+```
+
+## 项目结构
 
 ```
-stock-investment-system/
+Trading-sim/
 ├── backend/
 │   ├── app/
-│   │   ├── api_server.py       # FastAPI application
-│   │   ├── diversified_investment.py  # Investment system
-│   │   ├── market_analyzer.py  # Market analysis
+│   │   ├── api_server.py           # FastAPI 应用入口
+│   │   ├── diversified_investment.py  # 多样化投资系统核心
+│   │   ├── market_analyzer.py      # 市场分析模块
+│   │   ├── simulated_trading.py    # 模拟交易系统
+│   │   ├── investment_scheduler.py # 投资调度器
+│   │   ├── llm_agent/              # LLM Agent 智能决策模块
+│   │   │   ├── agent.py            # Agent主模块
+│   │   │   ├── config.py           # 配置管理
+│   │   │   ├── context.py          # 上下文构建
+│   │   │   ├── executor.py         # 决策执行器
+│   │   │   └── skill.py            # 技能注册
 │   │   └── services/
-│   │       ├── data_fetcher_enhanced.py  # Multi-source data
-│   │       ├── portfolio_manager.py
-│   │       └── performance_tracker.py
-│   ├── data/                   # Data cache
-│   ├── logs/                   # Log files
-│   ├── portfolio/              # Portfolio state
+│   │       ├── data_fetcher_enhanced.py  # 多源数据获取
+│   │       ├── portfolio_manager.py      # 投资组合管理
+│   │       ├── performance_tracker.py    # 绩效追踪
+│   │       └── news_scraper.py           # 新闻抓取
+│   ├── data/                       # 数据缓存目录
+│   ├── logs/                       # 日志文件
+│   ├── portfolio/                  # 投资组合状态持久化
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── views/              # Page components
-│   │   ├── stores/             # Pinia stores
-│   │   ├── router/             # Vue Router
+│   │   ├── views/                  # 页面组件
+│   │   │   ├── Overview.vue        # 总览页面
+│   │   │   ├── Portfolio.vue       # 投资组合
+│   │   │   ├── Charts.vue          # K线图表
+│   │   │   ├── Analysis.vue        # 分析页面
+│   │   │   ├── Backtest.vue        # 策略回测
+│   │   │   ├── News.vue            # 新闻资讯
+│   │   │   ├── Transactions.vue    # 交易记录
+│   │   │   └── Agent.vue           # LLM Agent管理
+│   │   ├── stores/                 # Pinia 状态管理
+│   │   ├── router/                 # Vue Router 路由
 │   │   └── style.css
 │   ├── package.json
 │   └── vite.config.ts
-├── docs/
-├── scripts/                    # Utility scripts
+├── backtests/                      # 回测模块
+│   ├── backtest_main.py
+│   ├── backtest_config.json
+│   └── results/                    # 回测结果
+├── docs/                           # 文档
+├── scripts/                        # 工具脚本
+├── start.sh                        # 启动脚本
 └── README.md
 ```
 
-## API Endpoints
+## API 接口
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/diversified/summary` | GET | Portfolio summary |
-| `/api/diversified/positions` | GET | Current positions |
-| `/api/diversified/initial-build` | POST | Initial portfolio build |
-| `/api/diversified/rebalance` | POST | Rebalance portfolio |
-| `/api/diversified/auto-run` | POST | Run automated investment |
-| `/api/stock/history` | GET | Stock K-line data |
+### 投资组合 API
 
-## Investment Strategies
+| 接口 | 方法 | 描述 |
+|------|------|------|
+| `/api/diversified/summary` | GET | 投资组合摘要 |
+| `/api/diversified/positions` | GET | 当前持仓列表 |
+| `/api/diversified/stock-pool` | GET | 股票池 |
+| `/api/diversified/initial-build` | POST | 初始建仓 |
+| `/api/diversified/rebalance` | POST | 组合调仓 |
+| `/api/diversified/auto-run` | POST | 自动投资流程 |
+| `/api/diversified/check-stop-loss` | POST | 止损止盈检查 |
+| `/api/diversified/buy` | POST | 手动买入 |
+| `/api/diversified/sell` | POST | 手动卖出 |
 
-### Investment Styles
-- **Conservative** - Lower risk, focus on blue-chip stocks
-- **Balanced** - Mix of growth and value stocks
-- **Aggressive** - Higher risk, growth-focused
+### 股票数据 API
 
-### Position Types
-- **Long-term** (>3 months) - 15% stop loss / 50% take profit
-- **Mid-term** (1-3 months) - 10% stop loss / 30% take profit
-- **Short-term** (<1 month) - 5% stop loss / 15% take profit
+| 接口 | 方法 | 描述 |
+|------|------|------|
+| `/api/stock/price/{symbol}` | GET | 获取股票价格 |
+| `/api/stock/history` | GET | K线历史数据 |
 
-### Sector Allocation
-- Finance (25%), Consumer (20%), Technology (15%)
-- Healthcare (15%), Energy (10%), Utilities (10%)
+### 回测 API
 
-## Technical Indicators
+| 接口 | 方法 | 描述 |
+|------|------|------|
+| `/api/backtest/run` | POST | 运行回测 |
+| `/api/backtest/results` | GET | 回测结果列表 |
+| `/api/backtest/strategies` | GET | 可用策略列表 |
 
-The system supports professional technical analysis:
+### LLM Agent API
 
-- **MA (Moving Averages)** - MA5, MA10, MA20
-- **MACD** - DIF, DEA, MACD histogram
-- **RSI (14)** - Relative Strength Index
-- **Volume Analysis** - Volume bars with price correlation
+| 接口 | 方法 | 描述 |
+|------|------|------|
+| `/api/agent/status` | GET | Agent状态 |
+| `/api/agent/decision` | POST | 触发Agent决策 |
+| `/api/agent/auto-run` | POST | Agent自动投资 |
+| `/api/agent/history` | GET | 决策历史 |
+| `/api/agent/token-usage` | GET | Token使用统计 |
 
-## LLM Agent Integration
+## 投资策略
 
-The system supports AI-powered investment decisions through LLM Agent:
+### 投资风格
+- **保守型 (Conservative)** - 低风险，专注蓝筹股
+- **均衡型 (Balanced)** - 成长与价值平衡
+- **激进型 (Aggressive)** - 高风险，追求高收益
+
+### 持仓类型
+- **长线 (>3个月)** - 止损15% / 止盈50%
+- **中线 (1-3个月)** - 止损10% / 止盈30%
+- **短线 (<1个月)** - 止损5% / 止盈15%
+
+### 行业配置
+- 金融 (25%)、消费 (20%)、科技 (15%)
+- 医疗 (15%)、能源 (10%)、公用事业 (10%)
+
+## 技术指标
+
+系统支持专业技术分析：
+
+- **均线 (MA)** - MA5、MA10、MA20
+- **MACD** - DIF、DEA、MACD柱状图
+- **RSI (14)** - 相对强弱指标
+- **成交量分析** - 成交量柱状图与价格相关性
+
+## LLM Agent配置
+
+系统支持通过环境变量配置LLM Agent：
 
 ```bash
-# .env configuration
+# .env 文件配置
 AGENT_ENABLED=true
 OPENAI_API_KEY=your_api_key
-OPENAI_BASE_URL=https://api.openai.com/v1  # Optional, for custom LLM services
-OPENAI_MODEL=gpt-4
+OPENAI_BASE_URL=https://api.openai.com/v1  # 可选，用于自定义LLM服务
+OPENAI_MODEL=gpt-4                          # 模型选择
 ```
 
-Agent Features:
-- Intelligent market analysis
-- Automatic trading decision generation
-- Token usage tracking
-- Decision history logging
+Agent功能：
+- 智能分析市场状况
+- 自动生成交易决策
+- Token使用追踪（默认最大输出8000 tokens，上下文128000 tokens）
+- 决策历史记录
 
-## Backtesting Strategies
+## 回测策略
 
-Built-in backtesting strategies:
+系统内置多种回测策略：
 
-1. **MA Cross Strategy** - Buy when short MA crosses above long MA
-2. **Buy & Hold Strategy** - Simple buy and hold without rebalancing
-3. **RSI Mean Reversion** - Trade based on RSI overbought/oversold signals
+1. **均线交叉策略 (ma_cross)**
+   - 短期均线上穿长期均线买入
+   - 短期均线下穿长期均线卖出
+   - 参数：short_period, long_period
 
-## Data Sources
+2. **买入持有策略 (buy_hold)**
+   - 简单买入并持有
+   - 不进行调仓操作
 
-The system supports multiple data sources with automatic fallback:
+3. **RSI均值回归策略 (rsi_mean_reversion)**
+   - RSI低于超卖阈值买入
+   - RSI高于超买阈值卖出
+   - 参数：rsi_period, overbought, oversold
 
-1. Akshare (Primary)
+## 配置说明
+
+核心配置在 `diversified_investment.py`：
+
+```python
+config = InvestmentConfig(
+    initial_cash=100000,        # 初始资金
+    investment_style=InvestmentStyle.BALANCED,  # 投资风格
+    max_holdings=10,            # 最大持仓数
+    max_position_pct=0.15,      # 单只股票最大仓位
+    max_sector_pct=0.30,        # 行业最大仓位
+    min_cash_reserve=0.15       # 最低现金储备
+)
+```
+
+## 数据源
+
+系统支持多数据源自动切换：
+
+1. Akshare (主要)
 2. Baostock
 3. Tushare
 4. Yahoo Finance
 5. Sina Finance
 6. East Money
-7. Tencent Finance
-8. NetEase Finance
+7. 腾讯财经
+8. 网易财经
 
-## Pages Overview
+## 页面功能
 
-| Page | Description |
-|------|-------------|
-| Overview | Portfolio summary, key metrics, risk analysis |
-| Portfolio | Position details, asset allocation, trading operations |
-| Charts | K-line charts, technical indicators, volume analysis |
-| Analysis | Performance metrics, risk assessment, return statistics |
-| Backtest | Strategy backtesting, parameter configuration |
-| News | Market news, sentiment analysis |
-| Transactions | Trade history, execution details |
-| Agent | LLM Agent status, decision history, token usage |
+| 页面 | 功能描述 |
+|------|----------|
+| 总览 | 投资组合概览、关键指标、风险分析 |
+| 投资组合 | 持仓详情、资产配置、交易操作 |
+| 图表 | K线图、技术指标、成交量分析 |
+| 分析 | 绩效分析、风险评估、收益统计 |
+| 回测 | 策略回测、参数配置、结果查看 |
+| 新闻 | 市场新闻、情绪分析、资讯聚合 |
+| 交易记录 | 历史交易、成交明细、统计分析 |
+| Agent | LLM Agent状态、决策历史、Token统计 |
 
-## Live Demo
+## 在线演示
 
-The system is deployed and accessible online:
+系统已部署在线演示环境：
 
-**URL**: [stock.plk161211.top](https://stock.plk161211.top)
+**访问地址**: [stock.plk161211.top](https://stock.plk161211.top)
 
-## Configuration
-
-Key configuration in `diversified_investment.py`:
-
-```python
-config = InvestmentConfig(
-    initial_cash=100000,        # Initial capital
-    investment_style=InvestmentStyle.BALANCED,
-    max_holdings=10,            # Maximum positions
-    max_position_pct=0.15,      # Single position limit
-    max_sector_pct=0.30,        # Sector limit
-    min_cash_reserve=0.15       # Cash reserve
-)
-```
-
-## License
+## 许可证
 
 MIT License
 
-## Contributing
+## 贡献
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+欢迎提交 Issue 和 Pull Request！
 
-## Acknowledgments
+## 致谢
 
 - TradingView Lightweight Charts
 - FastAPI
 - Vue 3
+- Akshare / Baostock 数据源
+
+---
+
+> 由御坂网络第一代打造

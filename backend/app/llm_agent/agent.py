@@ -134,16 +134,59 @@ class LLMAgentStrategy:
         """构建系统提示词 - 定义Skill格式"""
         skills_desc = self.skill_registry.get_skills_description()
 
-        return f"""你是一个专业的股票交易决策AI。你必须严格遵守以下skill格式的交易策略。
+        # 获取工作流Skills
+        try:
+            from app.llm_agent.workflow import InvestmentWorkflowSkills
+            workflow_skills = InvestmentWorkflowSkills.get_all_skills()
+            workflow_desc = {
+                "explore": [s.to_dict() for s in InvestmentWorkflowSkills.get_skills_by_phase(
+                    __import__('app.llm_agent.workflow', fromlist=['WorkflowPhase']).WorkflowPhase.EXPLORE
+                ).values()],
+                "decide": [s.to_dict() for s in InvestmentWorkflowSkills.get_skills_by_phase(
+                    __import__('app.llm_agent.workflow', fromlist=['WorkflowPhase']).WorkflowPhase.DECIDE
+                ).values()],
+                "evaluate": [s.to_dict() for s in InvestmentWorkflowSkills.get_skills_by_phase(
+                    __import__('app.llm_agent.workflow', fromlist=['WorkflowPhase']).WorkflowPhase.EVALUATE
+                ).values()]
+            }
+        except:
+            workflow_desc = {}
 
-可用Skills:
+        return f"""你是一个专业的股票交易决策AI，遵循**探索-决策-评估**三步循环的投资决策流程。
+
+## 工作流程
+
+### 第一步：探索阶段 (EXPLORE)
+在做出决策前，你需要先分析市场环境。可用的分析技能：
+- market_scan: 市场扫描 - 获取市场整体行情
+- fundamental_analysis: 基本面分析 - 分析财务指标
+- technical_analysis: 技术面分析 - 分析技术指标
+- news_sentiment: 新闻情绪分析 - 分析市场情绪
+- capital_flow: 资金流向分析 - 追踪资金动向
+- sector_rotation: 板块轮动分析 - 识别热点板块
+
+### 第二步：决策阶段 (DECIDE)
+基于探索结果，选择合适的交易决策：
+- buy: 买入决策 - 建立新仓位或加仓
+- sell: 卖出决策 - 减仓或清仓
+- hold: 持有观望 - 保持当前仓位
+- rebalance: 调仓决策 - 优化组合配置
+- position_sizing: 仓位管理 - 确定仓位规模
+
+### 第三步：评估阶段 (EVALUATE)
+执行决策后评估效果：
+- performance_review: 绩效回顾
+- risk_assessment: 风险评估
+- portfolio_analysis: 组合分析
+- stop_loss_check: 止损检查
+- take_profit_check: 止盈检查
+
+## 可用Skills详情
 {json.dumps(skills_desc, indent=2, ensure_ascii=False)}
 
-输出格式要求:
-- 必须返回JSON对象，包含"decisions"字段（决策数组）
-- 每个决策必须包含: skill名称, parameters参数对象, reason决策理由
-- 参数必须符合Skill定义中的类型和约束
-- confidence必须在0.0-1.0之间
+## 输出格式要求
+必须返回JSON对象，包含"decisions"字段（决策数组）。
+每个决策必须包含: skill名称, parameters参数对象, reason决策理由。
 
 示例输出:
 {{
@@ -156,72 +199,73 @@ class LLMAgentStrategy:
         "holding_type": "long_term",
         "confidence": 0.85
       }},
-      "reason": "金融板块走强，工商银行作为蓝筹股估值合理，股息率高"
-    }},
-    {{
-      "skill": "hold",
-      "parameters": {{
-        "confidence": 0.7
-      }},
-      "reason": "市场方向不明，等待更明确信号"
+      "reason": "探索阶段分析结果：金融板块走强，工商银行作为蓝筹股估值合理(PB=0.6)，技术面MA5上穿MA20形成金叉，资金持续流入，建议买入"
     }}
   ]
 }}
 
-重要约束:
+## 重要约束
 - 单只股票最大仓位: {self.system.config.max_position_per_stock:.0%}
 - 单板块最大仓位: {self.system.config.max_position_per_sector:.0%}
 - 最低现金储备: {self.system.config.min_cash_reserve:.0%}
 - 最大持仓数: {self.system.config.max_holdings}
 - 当前持仓数: {len(self.system.positions)}
 
-你的决策应该基于提供的市场数据、持仓情况、新闻情绪等多维度信息。
-优先选择符合当前投资风格的股票（蓝筹股、成长股等）。
-如果市场不确定，可以选择"hold"观望。
+## 决策原则
+1. **先分析后决策**: 基于探索阶段的数据做出决策，不要盲目交易
+2. **风险优先**: 始终考虑风险敞口，确保符合风控约束
+3. **分散投资**: 避免过度集中于单一板块或个股
+4. **趋势跟踪**: 顺势而为，不要逆势操作
+5. **止损止盈**: 严格执行止损止盈纪律
 """
 
     def _build_user_prompt(self, context: Dict) -> str:
         """构建用户提示词"""
-        return f"""基于以下市场数据做出交易决策:
+        return f"""基于以下探索阶段收集的数据做出交易决策:
 
-## 投资组合概况
+## 🔍 探索阶段数据汇总
+
+### 📊 投资组合概况
 ```json
 {json.dumps(context.get('portfolio', {}), indent=2, ensure_ascii=False)}
 ```
 
-## 市场分析
+### 📈 市场分析结果
 ```json
 {json.dumps(context.get('market', {}), indent=2, ensure_ascii=False)}
 ```
 
-## 候选股票
+### 🎯 候选股票池
 ```json
 {json.dumps(context.get('candidates', {}), indent=2, ensure_ascii=False, default=str)}
 ```
 
-## 最新新闻
+### 📰 市场新闻与情绪
 ```json
 {json.dumps(context.get('news', []), indent=2, ensure_ascii=False)}
 ```
 
-## 风控约束
+### ⚠️ 风控约束
 ```json
 {json.dumps(context.get('constraints', {}), indent=2, ensure_ascii=False)}
 ```
 
-## 近期交易历史
+### 📜 近期交易历史
 ```json
 {json.dumps(context.get('history', []), indent=2, ensure_ascii=False)}
 ```
 
-请根据以上信息，做出交易决策。考虑以下因素:
-1. 当前持仓的盈亏情况
-2. 各板块配置比例
-3. 市场情绪和风险评估
-4. 候选股票的基本面和技术面
-5. 新闻情绪影响
+## 🎯 决策阶段
 
-返回JSON格式的决策列表。"""
+请根据以上探索数据，按照以下步骤做出决策：
+
+1. **市场判断**: 当前市场环境如何？风险偏好如何？
+2. **板块选择**: 哪些板块值得关注？哪些需要回避？
+3. **个股选择**: 具体看好/看空哪些股票？理由是什么？
+4. **仓位决策**: 建议的仓位配置是什么？
+5. **风险控制**: 如何设置止损止盈？
+
+请返回JSON格式的决策列表，每个决策包含skill、parameters和reason。"""
 
     def _parse_response(self, response: str) -> List[Dict]:
         """解析LLM响应"""

@@ -1339,6 +1339,68 @@ async def get_agent_skills():
         return {"success": False, "error": str(e)}
 
 
+@app.get("/api/agent/workflow")
+async def get_agent_workflow():
+    """获取投资决策工作流描述"""
+    try:
+        from app.llm_agent import InvestmentWorkflowSkills
+        workflow = InvestmentWorkflowSkills.get_workflow_description()
+        return {
+            "success": True,
+            "workflow": workflow
+        }
+    except Exception as e:
+        logger.error(f"获取工作流失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@app.get("/api/agent/workflow/skills/{phase}")
+async def get_workflow_skills_by_phase(phase: str):
+    """获取指定阶段的Skills"""
+    try:
+        from app.llm_agent import InvestmentWorkflowSkills, WorkflowPhase
+
+        phase_map = {
+            "explore": WorkflowPhase.EXPLORE,
+            "decide": WorkflowPhase.DECIDE,
+            "evaluate": WorkflowPhase.EVALUATE
+        }
+
+        if phase not in phase_map:
+            return {"success": False, "error": f"无效的阶段: {phase}. 可选: explore, decide, evaluate"}
+
+        skills = InvestmentWorkflowSkills.get_skills_by_phase(phase_map[phase])
+        return {
+            "success": True,
+            "phase": phase,
+            "skills": {name: skill.to_dict() for name, skill in skills.items()}
+        }
+    except Exception as e:
+        logger.error(f"获取阶段Skills失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/agent/workflow/run-cycle")
+async def run_workflow_cycle():
+    """运行完整的探索-决策-评估循环"""
+    try:
+        system = get_diversified_system()
+        if system is None:
+            return {"error": "系统未初始化"}
+
+        from app.llm_agent import WorkflowExecutor
+        executor = WorkflowExecutor(system)
+        result = executor.run_full_cycle()
+
+        return {
+            "success": True,
+            "cycle_result": result
+        }
+    except Exception as e:
+        logger.error(f"运行工作流循环失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
 @app.get("/api/agent/history")
 async def get_agent_history(limit: int = 10):
     """获取Agent决策历史"""

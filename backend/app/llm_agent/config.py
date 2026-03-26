@@ -12,8 +12,8 @@ class AgentConfig:
     openai_model: str = "gpt-4o"
     base_url: str = ""  # 自定义API地址，用于本地部署的LLM
     temperature: float = 0.2
-    max_tokens: int = 2000
-    max_context_tokens: int = 32000  # 最大上下文token数
+    max_tokens: int = 8000  # 输出token限制，充分利用模型能力
+    max_context_tokens: int = 128000  # 最大上下文token数，支持大上下文模型
 
     # Agent行为
     enabled: bool = True
@@ -41,9 +41,9 @@ class AgentConfig:
             openai_model=os.getenv("OPENAI_MODEL", "gpt-4o"),
             base_url=os.getenv("OPENAI_BASE_URL", ""),
             temperature=float(os.getenv("AGENT_TEMPERATURE", "0.2")),
-            max_tokens=int(os.getenv("AGENT_MAX_TOKENS", "2000")),
+            max_tokens=int(os.getenv("AGENT_MAX_TOKENS", "8000")),
             # 支持自定义最大token数（本地LLM通常需要更大）
-            max_context_tokens=int(os.getenv("AGENT_MAX_CONTEXT_TOKENS", "32000")),
+            max_context_tokens=int(os.getenv("AGENT_MAX_CONTEXT_TOKENS", "128000")),
             enabled=os.getenv("AGENT_ENABLED", "false").lower() == "true",
             decision_interval=int(os.getenv("AGENT_DECISION_INTERVAL", "300")),
             max_decisions_per_run=int(os.getenv("AGENT_MAX_DECISIONS_PER_RUN", "5")),

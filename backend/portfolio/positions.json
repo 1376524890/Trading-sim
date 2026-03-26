@@ -1,11 +1,11 @@
 {
-  "cash": 53586.081,
+  "cash": 53582.097,
   "positions": {
     "000858.SZ": {
       "name": "五粮液",
       "shares": 100,
       "avg_cost": 102.4,
-      "current_price": 102.4,
+      "current_price": 101.28,
       "holding_type": "long_term",
       "sector": "消费",
       "buy_date": "2026-03-23",
@@ -18,7 +18,7 @@
       "name": "比亚迪",
       "shares": 100,
       "avg_cost": 103.03,
-      "current_price": 103.03,
+      "current_price": 103.14,
       "holding_type": "mid_term",
       "sector": "科技",
       "buy_date": "2026-03-23",
@@ -31,7 +31,7 @@
       "name": "中国石油",
       "shares": 600,
       "avg_cost": 12.24,
-      "current_price": 12.24,
+      "current_price": 11.94,
       "holding_type": "long_term",
       "sector": "能源",
       "buy_date": "2026-03-23",
@@ -44,7 +44,7 @@
       "name": "长江电力",
       "shares": 200,
       "avg_cost": 27.18,
-      "current_price": 27.18,
+      "current_price": 27.31,
       "holding_type": "mid_term",
       "sector": "公用事业",
       "buy_date": "2026-03-23",
@@ -57,7 +57,7 @@
       "name": "工商银行",
       "shares": 900,
       "avg_cost": 7.5,
-      "current_price": 7.5,
+      "current_price": 7.42,
       "holding_type": "mid_term",
       "sector": "金融",
       "buy_date": "2026-03-23",
@@ -70,7 +70,7 @@
       "name": "陕西煤业",
       "shares": 200,
       "avg_cost": 27.16,
-      "current_price": 27.16,
+      "current_price": 26.24,
       "holding_type": "mid_term",
       "sector": "能源",
       "buy_date": "2026-03-23",
@@ -166,18 +166,18 @@
       "strategy": "diversified"
     },
     {
-      "time": "2026-03-26 06:35:14",
+      "time": "2026-03-26 07:34:29",
       "type": "sell",
       "symbol": "600276.SS",
       "name": "恒瑞医药",
       "shares": 200,
-      "price": 51.65,
-      "total_revenue": 10288.68,
-      "pnl": -739.3199999999997,
-      "pnl_pct": -6.704026115342761,
-      "reason": "止损 -6.33%",
+      "price": 51.63,
+      "total_revenue": 10284.696000000002,
+      "pnl": -743.3039999999983,
+      "pnl_pct": -6.74015233949944,
+      "reason": "止损 -6.37%",
       "holding_days": 3
     }
   ],
-  "last_update": "2026-03-26 06:35:15"
+  "last_update": "2026-03-26 07:57:09"
 }
