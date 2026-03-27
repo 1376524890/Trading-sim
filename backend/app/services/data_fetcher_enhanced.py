@@ -29,6 +29,18 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Union
 from loguru import logger
 import time
+import pytz
+
+# 中国时区 (北京时间)
+CHINA_TZ = pytz.timezone('Asia/Shanghai')
+
+def get_china_now() -> datetime:
+    """获取中国时间（北京时间）"""
+    return datetime.now(CHINA_TZ)
+
+def get_china_date_str(fmt: str = "%Y-%m-%d") -> str:
+    """获取中国日期字符串"""
+    return get_china_now().strftime(fmt)
 
 
 class EnhancedDataFetcher:
@@ -102,11 +114,11 @@ class EnhancedDataFetcher:
         Returns:
             pd.DataFrame: 包含 OHLCV 数据的数据框
         """
-        # 设置默认日期
+        # 设置默认日期 (使用北京时间)
         if end_date is None:
-            end_date = datetime.now().strftime("%Y-%m-%d")
+            end_date = get_china_date_str("%Y-%m-%d")
         if start_date is None:
-            start_date = (datetime.now() - timedelta(days=365*5)).strftime("%Y-%m-%d")
+            start_date = (get_china_now() - timedelta(days=365*5)).strftime("%Y-%m-%d")
         
         logger.info(f"正在获取 {symbol} 的数据，时间范围：{start_date} ~ {end_date}")
 
@@ -713,8 +725,8 @@ class EnhancedDataFetcher:
             df = ak.stock_zh_a_hist(
                 symbol=stock_code,
                 period="daily",
-                start_date=(datetime.now() - timedelta(days=5)).strftime('%Y%m%d'),
-                end_date=datetime.now().strftime('%Y%m%d'),
+                start_date=(get_china_now() - timedelta(days=5)).strftime('%Y%m%d'),
+                end_date=get_china_date_str('%Y%m%d'),
                 adjust="qfq"
             )
 
@@ -740,8 +752,8 @@ def main():
     
     df = fetcher.fetch_stock_data(
         stock,
-        start_date=(datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'),
-        end_date=datetime.now().strftime('%Y-%m-%d')
+        start_date=(get_china_now() - timedelta(days=30)).strftime('%Y-%m-%d'),
+        end_date=get_china_date_str('%Y-%m-%d')
     )
     
     if not df.empty:

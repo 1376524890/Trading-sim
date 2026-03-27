@@ -378,9 +378,9 @@ status() {
 
 # ==================== 启动函数 ====================
 
-# Function to start backend
-start_backend() {
-    echo -e "${YELLOW}🚀 Starting Backend...${NC}"
+# Function to start backend in background
+start_backend_daemon() {
+    echo -e "${YELLOW}🚀 Starting Backend (daemon mode)...${NC}"
 
     # 停止现有后端进程
     if lsof -ti:8080 &>/dev/null; then
@@ -409,20 +409,34 @@ start_backend() {
     local backend_log="$SCRIPT_DIR/backend/logs/backend_${timestamp}.log"
     echo -e "${BLUE}   后端日志: $backend_log${NC}"
 
-    # Start server with error handling
+    # Start server in background
     echo -e "${GREEN}✓ 启动后端服务...${NC}"
-    python "$api_server" 2>&1 | tee "$backend_log" &
+    nohup python "$api_server" > "$backend_log" 2>&1 &
     BACKEND_PID=$!
 
+    # Save PID to file
+    echo $BACKEND_PID > "$SCRIPT_DIR/backend/.backend.pid"
+    echo -e "${GREEN}✓ 后端 PID: $BACKEND_PID${NC}"
+
     # Wait for backend to start
-    echo -e "${BLUE}   等待后端启动 (PID: $BACKEND_PID)...${NC}"
-    sleep 3
+    echo -e "${BLUE}   等待后端启动...${NC}"
+    local max_wait=30
+    local waited=0
+    while [ $waited -lt $max_wait ]; do
+        if curl -s http://localhost:8080/health > /dev/null 2>&1; then
+            echo -e "${GREEN}✓ 后端健康检查通过${NC}"
+            echo -e "${GREEN}✓ Backend running at http://localhost:8080${NC}"
+            return 0
+        fi
+        sleep 1
+        waited=$((waited + 1))
+        printf "\r${BLUE}   等待中... %ds/${max_wait}s${NC}" $waited
+    done
+    echo ""
 
     # Check if process is still running
     if ! ps -p $BACKEND_PID > /dev/null; then
-        echo ""
         echo -e "${RED}❌ 错误: 后端启动失败${NC}"
-        echo ""
         echo -e "${YELLOW}========== 后端错误日志 ==========${NC}"
         if [ -f "$backend_log" ]; then
             tail -30 "$backend_log" | while read line; do
@@ -430,30 +444,128 @@ start_backend() {
             done
         fi
         echo -e "${YELLOW}===================================${NC}"
-        echo ""
-        echo -e "${YELLOW}常见原因:${NC}"
-        echo -e "   • Python 依赖未安装: pip install -r requirements.txt"
-        echo -e "   • 端口 8080 被占用: lsof -i :8080"
-        echo -e "   • Python 模块导入错误"
-        echo -e "   • 配置文件缺失或错误"
-        echo ""
-        echo -e "${BLUE}完整日志查看: tail -f $backend_log${NC}"
         return 1
     fi
 
-    # Check if backend is responding
-    echo -e "${BLUE}   检查后端健康状态...${NC}"
-    sleep 2
-    local health_check=$(curl -s http://localhost:8080/health 2>/dev/null || echo "")
-    if [ -n "$health_check" ]; then
-        echo -e "${GREEN}✓ 后端健康检查通过${NC}"
-    fi
-
-    echo -e "${GREEN}✓ Backend running at http://localhost:8080${NC}"
-    wait $BACKEND_PID
+    echo -e "${YELLOW}⚠ 后端进程运行中，但健康检查未通过${NC}"
+    echo -e "${YELLOW}   请稍后检查: curl http://localhost:8080/health${NC}"
+    return 0
 }
 
-# Function to start frontend
+# Function to start frontend in background
+start_frontend_daemon() {
+    echo -e "${YELLOW}🚀 Starting Frontend (daemon mode)...${NC}"
+
+    # 停止现有前端进程
+    if lsof -ti:3000 &>/dev/null; then
+        echo -e "${BLUE}   停止现有前端进程...${NC}"
+        stop_frontend
+        sleep 1
+    fi
+
+    cd "$SCRIPT_DIR/frontend"
+
+    # Check if node is available
+    if ! command -v node &> /dev/null; then
+        echo -e "${RED}❌ Error: Node.js is not installed${NC}"
+        return 1
+    fi
+
+    # Check node_modules
+    if [ ! -d "node_modules" ]; then
+        echo -e "${YELLOW}📦 Installing frontend dependencies...${NC}"
+        npm install
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}❌ Error: Failed to install frontend dependencies${NC}"
+            return 1
+        fi
+        echo -e "${GREEN}✓ Frontend dependencies installed${NC}"
+    else
+        echo -e "${BLUE}ℹ Frontend dependencies already installed${NC}"
+    fi
+
+    # Create log file with timestamp
+    local timestamp=$(date +"%Y%m%d_%H%M%S")
+    local frontend_log="$SCRIPT_DIR/frontend/logs/frontend_${timestamp}.log"
+    mkdir -p "$SCRIPT_DIR/frontend/logs"
+    echo -e "${BLUE}   前端日志: $frontend_log${NC}"
+
+    # Start dev server in background
+    nohup npm run dev > "$frontend_log" 2>&1 &
+    FRONTEND_PID=$!
+
+    # Save PID to file
+    echo $FRONTEND_PID > "$SCRIPT_DIR/frontend/.frontend.pid"
+    echo -e "${GREEN}✓ 前端 PID: $FRONTEND_PID${NC}"
+
+    # Wait for frontend to start
+    echo -e "${BLUE}   等待前端启动...${NC}"
+    local max_wait=15
+    local waited=0
+    while [ $waited -lt $max_wait ]; do
+        if curl -s http://localhost:3000 > /dev/null 2>&1; then
+            echo -e "${GREEN}✓ Frontend running at http://localhost:3000${NC}"
+            return 0
+        fi
+        sleep 1
+        waited=$((waited + 1))
+        printf "\r${BLUE}   等待中... %ds/${max_wait}s${NC}" $waited
+    done
+    echo ""
+
+    # Check if process is still running
+    if ! ps -p $FRONTEND_PID > /dev/null; then
+        echo -e "${RED}❌ 前端启动失败${NC}"
+        echo -e "${YELLOW}========== 前端错误日志 ==========${NC}"
+        if [ -f "$frontend_log" ]; then
+            tail -30 "$frontend_log"
+        fi
+        echo -e "${YELLOW}===================================${NC}"
+        return 1
+    fi
+
+    echo -e "${YELLOW}⚠ 前端进程运行中，但端口未响应${NC}"
+    echo -e "${YELLOW}   请稍后检查: curl http://localhost:3000${NC}"
+    return 0
+}
+
+# Function to start backend (foreground mode - kept for compatibility)
+start_backend() {
+    echo -e "${YELLOW}🚀 Starting Backend (foreground mode)...${NC}"
+
+    # 停止现有后端进程
+    if lsof -ti:8080 &>/dev/null; then
+        echo -e "${BLUE}   停止现有后端进程...${NC}"
+        stop_backend
+        sleep 1
+    fi
+
+    # Setup and activate venv
+    setup_venv
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}❌ 错误: 虚拟环境设置失败${NC}"
+        return 1
+    fi
+
+    # Check if Python file exists
+    local api_server="$SCRIPT_DIR/backend/app/api_server.py"
+    if [ ! -f "$api_server" ]; then
+        echo -e "${RED}❌ 错误: 未找到后端启动文件${NC}"
+        echo -e "${RED}   期望路径: $api_server${NC}"
+        return 1
+    fi
+
+    # Create log file with timestamp
+    local timestamp=$(date +"%Y%m%d_%H%M%S")
+    local backend_log="$SCRIPT_DIR/backend/logs/backend_${timestamp}.log"
+    echo -e "${BLUE}   后端日志: $backend_log${NC}"
+
+    # Start server in foreground
+    echo -e "${GREEN}✓ 启动后端服务...${NC}"
+    python "$api_server" 2>&1 | tee "$backend_log"
+}
+
+# Function to start frontend (foreground mode - kept for compatibility)
 start_frontend() {
     echo -e "${YELLOW}🚀 Starting Frontend...${NC}"
 
@@ -490,9 +602,9 @@ start_frontend() {
     npm run dev
 }
 
-# Function to start both
+# Function to start both (daemon mode)
 start_all() {
-    echo -e "${YELLOW}🚀 Starting both services...${NC}"
+    echo -e "${YELLOW}🚀 Starting both services (daemon mode)...${NC}"
 
     # 停止现有服务进程
     echo -e "${BLUE}   停止现有服务进程...${NC}"
@@ -500,92 +612,35 @@ start_all() {
     sleep 1
     echo ""
 
-    # Setup and activate venv
-    setup_venv
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}❌ 错误: 虚拟环境设置失败${NC}"
-        echo -e "${RED}   请检查 Python 版本和 requirements.txt${NC}"
-        exit 1
-    fi
-
-    # Check if backend file exists
-    local api_server="$SCRIPT_DIR/backend/app/api_server.py"
-    if [ ! -f "$api_server" ]; then
-        echo -e "${RED}❌ 错误: 后端启动文件不存在${NC}"
-        echo -e "${RED}   期望路径: $api_server${NC}"
-        exit 1
-    fi
-
-    # Create log file with timestamp
-    local timestamp=$(date +"%Y%m%d_%H%M%S")
-    local backend_log="$SCRIPT_DIR/backend/logs/backend_${timestamp}.log"
-    echo -e "${BLUE}   后端日志: $backend_log${NC}"
-
     # Start backend in background
-    echo -e "${YELLOW}🚀 Starting Backend...${NC}"
-    python "$api_server" > "$backend_log" 2>&1 &
-    BACKEND_PID=$!
-
-    # Wait for backend to start and check if it's running
-    echo -e "${BLUE}   等待后端启动 (PID: $BACKEND_PID)...${NC}"
-    sleep 3
-
-    # Check if process is still running
-    if ! ps -p $BACKEND_PID > /dev/null; then
-        echo -e "${RED}❌ 错误: 后端启动失败${NC}"
-        echo ""
-        echo -e "${YELLOW}========== 后端错误日志 ==========${NC}"
-        if [ -f "$backend_log" ]; then
-            tail -50 "$backend_log" | while read line; do
-                echo -e "${RED}   $line${NC}"
-            done
-        fi
-        echo -e "${YELLOW}===================================${NC}"
-        echo ""
-        echo -e "${YELLOW}常见原因:${NC}"
-        echo -e "   • Python 依赖未安装: pip install -r requirements.txt"
-        echo -e "   • 端口 8080 被占用: lsof -i :8080"
-        echo -e "   • Python 模块导入错误"
-        echo -e "   • 配置文件缺失或错误"
-        echo ""
-        echo -e "${BLUE}完整日志查看: tail -f $backend_log${NC}"
-        exit 1
+    start_backend_daemon
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}❌ 后端启动失败${NC}"
+        return 1
     fi
+    echo ""
 
-    # Check if backend is responding to health check
-    echo -e "${BLUE}   检查后端健康状态...${NC}"
-    sleep 2
-    local health_check=$(curl -s http://localhost:8080/health 2>/dev/null || echo "")
-    if [ -z "$health_check" ]; then
-        echo -e "${YELLOW}⚠ 警告: 后端进程运行中但无响应，可能启动尚未完成${NC}"
-        echo -e "${YELLOW}   请稍后检查: curl http://localhost:8080/health${NC}"
-    else
-        echo -e "${GREEN}✓ 后端健康检查通过${NC}"
+    # Start frontend in background
+    start_frontend_daemon
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}❌ 前端启动失败${NC}"
+        return 1
     fi
+    echo ""
 
-    echo -e "${GREEN}✓ Backend running (PID: $BACKEND_PID) at http://localhost:8080${NC}"
-
-    # Start frontend
-    echo -e "${YELLOW}🚀 Starting Frontend...${NC}"
-    cd "$SCRIPT_DIR/frontend"
-
-    # Check node_modules
-    if [ ! -d "node_modules" ]; then
-        echo -e "${YELLOW}📦 Installing frontend dependencies...${NC}"
-        npm install
-        if [ $? -ne 0 ]; then
-            echo -e "${RED}❌ Error: Failed to install frontend dependencies${NC}"
-            echo -e "${RED}   尝试删除 node_modules 后重新安装${NC}"
-            exit 1
-        fi
-        echo -e "${GREEN}✓ Frontend dependencies installed${NC}"
-    else
-        echo -e "${BLUE}ℹ Frontend dependencies already installed${NC}"
-    fi
-
-    # Start dev server
-    echo -e "${GREEN}✓ Frontend running at http://localhost:3000${NC}"
-    npm run dev
+    echo -e "${GREEN}==========================================${NC}"
+    echo -e "${GREEN}  ✓ 所有服务已启动${NC}"
+    echo -e "${GREEN}==========================================${NC}"
+    echo ""
+    echo -e "${BLUE}访问地址:${NC}"
+    echo -e "  前端: ${CYAN}http://localhost:3000${NC}"
+    echo -e "  后端: ${CYAN}http://localhost:8080${NC}"
+    echo ""
+    echo -e "${BLUE}管理命令:${NC}"
+    echo "  ./start.sh status     - 查看服务状态"
+    echo "  ./start.sh stop       - 停止所有服务"
+    echo "  ./start.sh restart    - 重启所有服务"
+    echo ""
 }
 
 # ==================== 重启函数 ====================
@@ -596,7 +651,7 @@ restart_backend() {
     stop_backend
     echo ""
     sleep 1
-    start_backend
+    start_backend_daemon
 }
 
 # 重启前端
@@ -605,7 +660,7 @@ restart_frontend() {
     stop_frontend
     echo ""
     sleep 1
-    start_frontend
+    start_frontend_daemon
 }
 
 # 重启所有服务
@@ -623,9 +678,15 @@ case "$1" in
         setup_all
         ;;
     backend)
+        start_backend_daemon
+        ;;
+    backend-fg)
         start_backend
         ;;
     frontend)
+        start_frontend_daemon
+        ;;
+    frontend-fg)
         start_frontend
         ;;
     all)
@@ -658,9 +719,11 @@ case "$1" in
         echo "用法: $0 {setup|backend|frontend|all|restart|stop|status}"
         echo ""
         echo "  setup           - 完整环境设置（检查 + 安装所有依赖）"
-        echo "  backend         - 启动后端 API 服务"
-        echo "  frontend        - 启动前端开发服务器"
-        echo "  all             - 启动全部服务"
+        echo "  backend         - 启动后端 API 服务 (后台运行)"
+        echo "  backend-fg      - 启动后端服务 (前台运行)"
+        echo "  frontend        - 启动前端开发服务器 (后台运行)"
+        echo "  frontend-fg     - 启动前端服务 (前台运行)"
+        echo "  all             - 启动全部服务 (后台运行)"
         echo "  restart         - 重启所有服务"
         echo "  restart-backend - 重启后端服务"
         echo "  restart-frontend- 重启前端服务"
@@ -668,6 +731,7 @@ case "$1" in
         echo "  stop-backend    - 停止后端服务"
         echo "  stop-frontend   - 停止前端服务"
         echo "  status          - 查看服务状态"
+        echo ""
         echo "依赖文档: docs/Dependencies.md"
         echo ""
         exit 1

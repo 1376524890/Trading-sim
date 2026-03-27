@@ -106,7 +106,7 @@ class DecisionExecutor:
             results.append(result)
         return results
 
-    async def execute_sync(self, decisions: List[Dict]) -> List[Dict]:
+    def execute_sync(self, decisions: List[Dict]) -> List[Dict]:
         """同步执行决策列表"""
         results = []
         for decision in decisions:
@@ -125,16 +125,21 @@ class DecisionExecutor:
         reason = decision.get("reason", "")
         confidence = params.get("confidence", 0.5)
 
+        logger.info(f"🔄 执行决策: skill={skill}, params={params}")
+
         if skill == "buy":
-            return self._execute_buy(params, reason, confidence)
+            result = self._execute_buy(params, reason, confidence)
         elif skill == "sell":
-            return self._execute_sell(params, reason, confidence)
+            result = self._execute_sell(params, reason, confidence)
         elif skill == "hold":
-            return {"action": "hold", "status": "success", "reason": reason, "confidence": confidence}
+            result = {"action": "hold", "status": "success", "reason": reason, "confidence": confidence}
         elif skill == "rebalance":
-            return self._execute_rebalance(params, reason, confidence)
+            result = self._execute_rebalance(params, reason, confidence)
         else:
-            return {"action": skill, "status": "error", "error": f"未知skill: {skill}"}
+            result = {"action": skill, "status": "error", "error": f"未知skill: {skill}"}
+
+        logger.info(f"📊 决策结果: {result}")
+        return result
 
     def _execute_buy(self, params: Dict, reason: str, confidence: float) -> Dict:
         """执行买入"""

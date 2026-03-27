@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -lt /home/marktom/Trading-sim/backend/logs/*.log)",
+      "Bash(ls -la /home/marktom/Trading-sim/backend/venv/bin/python*)",
+      "Bash(source /home/marktom/Trading-sim/backend/venv/bin/activate)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(''''Positions:''''\\); [print\\(f\"\"  {p[''''symbol'''']} {p.get\\(''''name'''',''''''''\\)}: {p[''''shares'''']}股\"\"\\) for p in d[''''positions'''']]\")",
+      "Bash(python3 -c \":*)"
+    ]
+  }
+}

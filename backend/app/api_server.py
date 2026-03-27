@@ -31,6 +31,18 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import json
 import asyncio
+import pytz
+
+# 中国时区 (北京时间)
+CHINA_TZ = pytz.timezone('Asia/Shanghai')
+
+def get_china_now() -> datetime:
+    """获取中国时间（北京时间）"""
+    return datetime.now(CHINA_TZ)
+
+def get_china_datetime_str(fmt: str = "%Y-%m-%d %H:%M:%S") -> str:
+    """获取中国日期时间字符串"""
+    return datetime.now(CHINA_TZ).strftime(fmt)
 
 # 添加脚本路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -171,7 +183,7 @@ async def health_check():
     """健康检查"""
     return {
         "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": get_china_now().isoformat(),
         "service": "stock-api"
     }
 
@@ -322,7 +334,7 @@ async def get_stock_price(symbol: str):
         return {
             "symbol": symbol,
             "price": price,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": get_china_now().isoformat()
         }
     except HTTPException:
         raise
@@ -356,8 +368,8 @@ async def get_stock_history(symbol: str, days: int = 30):
         try:
             df = data_fetcher.fetch_stock_data(
                 fetch_symbol,
-                start_date=(datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d'),
-                end_date=datetime.now().strftime('%Y-%m-%d')
+                start_date=(get_china_now() - timedelta(days=days)).strftime('%Y-%m-%d'),
+                end_date=get_china_now().strftime('%Y-%m-%d')
             )
             signal.alarm(0)  # 取消超时
         except TimeoutError:
@@ -479,7 +491,7 @@ async def get_daily_report():
         
         return {
             "file": str(report_file),
-            "generated_at": datetime.now().isoformat(),
+            "generated_at": get_china_now().isoformat(),
             "content": report_content
         }
     except Exception as e:
@@ -509,7 +521,7 @@ async def get_news(limit: int = 10):
                 "total": 0,
                 "categorized": {"positive": [], "neutral": [], "negative": []},
                 "error": "新闻获取超时",
-                "fetched_at": datetime.now().isoformat()
+                "fetched_at": get_china_now().isoformat()
             }
 
         # 分类
@@ -529,7 +541,7 @@ async def get_news(limit: int = 10):
         return {
             "total": len(news_items),
             "categorized": categorized_news,
-            "fetched_at": datetime.now().isoformat()
+            "fetched_at": get_china_now().isoformat()
         }
     except Exception as e:
         logger.error(f"获取新闻失败：{e}")
@@ -664,10 +676,10 @@ async def run_backtest(
 
         # 设置默认日期
         if not end_date:
-            end_date = datetime.now().strftime('%Y-%m-%d')
+            end_date = get_china_now().strftime('%Y-%m-%d')
         if not start_date:
             from datetime import timedelta
-            start_date = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
+            start_date = (get_china_now() - timedelta(days=365)).strftime('%Y-%m-%d')
 
         # 构建回测命令
         backtest_script = project_root / "backtests" / "backtest_main.py"
@@ -709,7 +721,7 @@ async def run_backtest(
             backtest_results_counter += 1
             backtest_data['id'] = backtest_results_counter
             backtest_data['strategy'] = strategy
-            backtest_data['timestamp'] = datetime.now().isoformat()
+            backtest_data['timestamp'] = get_china_now().isoformat()
             backtest_results_db.append(backtest_data)
 
             return {
@@ -819,7 +831,7 @@ async def get_diversified_summary():
 
         return {
             "success": True,
-            "time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "time": get_china_datetime_str('%Y-%m-%d %H:%M:%S'),
             "total_equity": analysis['total_equity'],
             "cash": analysis['cash'],
             "cash_ratio": round(analysis['cash_ratio'] * 100, 1),
@@ -852,6 +864,25 @@ async def get_diversified_positions():
         }
     except Exception as e:
         logger.error(f"获取多样化持仓失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@app.get("/api/diversified/trades")
+async def get_diversified_trades(limit: int = 50):
+    """获取多样化投资交易历史"""
+    try:
+        system = get_diversified_system()
+        if system is None:
+            return {"error": "系统未初始化"}
+
+        trades = system.trade_history[-limit:]
+        return {
+            "success": True,
+            "total": len(system.trade_history),
+            "trades": trades
+        }
+    except Exception as e:
+        logger.error(f"获取交易历史失败: {e}")
         return {"success": False, "error": str(e)}
 
 
@@ -1054,7 +1085,7 @@ async def scheduler_loop():
     while auto_scheduler_running:
         try:
             # 计算下次运行时间
-            scheduler_next_run = datetime.now() + timedelta(seconds=scheduler_interval_seconds)
+            scheduler_next_run = get_china_now() + timedelta(seconds=scheduler_interval_seconds)
 
             logger.info(f"📊 执行定时投资任务...")
 
@@ -1095,7 +1126,7 @@ async def scheduler_loop():
                 # 4. 保存状态
                 system._save_state()
 
-            scheduler_last_run = datetime.now()
+            scheduler_last_run = get_china_now()
             next_run_str = scheduler_next_run.strftime('%H:%M:%S')
             logger.info(f"✅ 定时任务完成，下次运行: {next_run_str} (间隔 {scheduler_interval_seconds}秒)")
 
@@ -1481,6 +1512,160 @@ async def clear_token_usage():
     except Exception as e:
         logger.error(f"清空Token使用失败: {e}")
         return {"success": False, "error": str(e)}
+
+
+# ============ 工作流状态追踪 API ============
+
+@app.get("/api/agent/workflow/state")
+async def get_workflow_state():
+    """获取当前工作流执行状态"""
+    try:
+        from app.llm_agent.state_tracker import workflow_tracker
+        state = workflow_tracker.get_state()
+        return {
+            "success": True,
+            **state
+        }
+    except Exception as e:
+        logger.error(f"获取工作流状态失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/agent/workflow/start")
+async def start_workflow_run():
+    """启动新的工作流执行"""
+    try:
+        system = get_diversified_system()
+        if system is None:
+            return {"success": False, "error": "系统未初始化"}
+
+        from app.llm_agent.state_tracker import workflow_tracker, WorkflowStatus
+
+        if workflow_tracker.is_running():
+            return {
+                "success": False,
+                "error": "已有工作流正在运行中"
+            }
+
+        # 开始追踪
+        run_id = workflow_tracker.start_run()
+
+        # 异步执行工作流
+        asyncio.create_task(run_workflow_with_tracking(system, run_id))
+
+        return {
+            "success": True,
+            "run_id": run_id,
+            "message": "工作流已启动"
+        }
+    except Exception as e:
+        logger.error(f"启动工作流失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@app.get("/api/agent/workflow/history")
+async def get_workflow_history(limit: int = 10):
+    """获取工作流执行历史"""
+    try:
+        from app.llm_agent.state_tracker import workflow_tracker
+        state = workflow_tracker.get_state()
+        recent_runs = state.get("recent_runs", [])[:limit]
+        return {
+            "success": True,
+            "history": recent_runs
+        }
+    except Exception as e:
+        logger.error(f"获取工作流历史失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
+async def run_workflow_with_tracking(system, run_id: str):
+    """带状态追踪的工作流执行"""
+    from app.llm_agent.state_tracker import (
+        workflow_tracker, WorkflowStatus, PhaseStatus
+    )
+    from app.llm_agent import WorkflowExecutor, InvestmentWorkflowSkills
+
+    executor = WorkflowExecutor(system)
+
+    try:
+        # 阶段1: 探索
+        workflow_tracker.start_phase("explore")
+        logger.info("🔍 开始探索阶段...")
+
+        # 执行探索阶段的各种工具
+        explore_skills = InvestmentWorkflowSkills.get_skills_by_phase(
+            InvestmentWorkflowSkills.WorkflowPhase.EXPLORE
+        )
+
+        for skill_name, skill in sorted(explore_skills.items(), key=lambda x: x[1].priority, reverse=True):
+            try:
+                workflow_tracker.start_tool("explore", skill_name, {})
+                result = executor.execute_skill(skill_name, {})
+                workflow_tracker.end_tool("explore", skill_name, result=result)
+            except Exception as e:
+                workflow_tracker.end_tool("explore", skill_name, error=str(e))
+
+        workflow_tracker.end_phase("explore", PhaseStatus.COMPLETED,
+                                   summary="探索阶段完成，已收集市场信息")
+
+        # 阶段2: 决策
+        workflow_tracker.start_phase("decide")
+        logger.info("🎯 进入决策阶段...")
+
+        if hasattr(system, 'llm_agent') and system.llm_agent and system.llm_agent.is_available():
+            try:
+                # 使用LLM Agent做决策
+                workflow_tracker.start_tool("decide", "llm_decision", {})
+
+                # 记录LLM调用
+                decisions = system.llm_agent.make_decision()
+
+                if decisions:
+                    workflow_tracker.add_decision(decisions)
+                    # 执行决策
+                    results = system.llm_agent.execute_decisions(decisions)
+                    workflow_tracker.end_tool("decide", "llm_decision",
+                                             result={"decisions": decisions, "results": results})
+                else:
+                    workflow_tracker.end_tool("decide", "llm_decision",
+                                             result={"decisions": [], "message": "无需操作"})
+
+                workflow_tracker.end_phase("decide", PhaseStatus.COMPLETED,
+                                          summary=f"决策阶段完成，执行了{len(decisions) if decisions else 0}个决策")
+            except Exception as e:
+                workflow_tracker.end_tool("decide", "llm_decision", error=str(e))
+                workflow_tracker.end_phase("decide", PhaseStatus.FAILED, error=str(e))
+        else:
+            workflow_tracker.end_phase("decide", PhaseStatus.SKIPPED,
+                                      summary="LLM Agent不可用，跳过决策阶段")
+
+        # 阶段3: 评估
+        workflow_tracker.start_phase("evaluate")
+        logger.info("📊 执行评估阶段...")
+
+        evaluate_skills = InvestmentWorkflowSkills.get_skills_by_phase(
+            InvestmentWorkflowSkills.WorkflowPhase.EVALUATE
+        )
+
+        for skill_name, skill in sorted(evaluate_skills.items(), key=lambda x: x[1].priority, reverse=True):
+            try:
+                workflow_tracker.start_tool("evaluate", skill_name, {})
+                result = executor.execute_skill(skill_name, {})
+                workflow_tracker.end_tool("evaluate", skill_name, result=result)
+            except Exception as e:
+                workflow_tracker.end_tool("evaluate", skill_name, error=str(e))
+
+        workflow_tracker.end_phase("evaluate", PhaseStatus.COMPLETED,
+                                   summary="评估阶段完成")
+
+        # 完成
+        workflow_tracker.end_run(WorkflowStatus.COMPLETED)
+        logger.info(f"✅ 工作流 {run_id} 执行完成")
+
+    except Exception as e:
+        logger.error(f"工作流执行失败: {e}")
+        workflow_tracker.end_run(WorkflowStatus.FAILED, error=str(e))
 
 
 # ============ 策略 API ============

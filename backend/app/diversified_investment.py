@@ -23,6 +23,22 @@ from enum import Enum
 import json
 import random
 import numpy as np
+import pytz
+
+# 中国时区 (北京时间)
+CHINA_TZ = pytz.timezone('Asia/Shanghai')
+
+def get_china_now() -> datetime:
+    """获取中国时间（北京时间）"""
+    return datetime.now(CHINA_TZ).replace(tzinfo=None)  # 移除时区信息以保持兼容性
+
+def get_china_date_str(fmt: str = "%Y-%m-%d") -> str:
+    """获取中国日期字符串"""
+    return datetime.now(CHINA_TZ).strftime(fmt)
+
+def get_china_datetime_str(fmt: str = "%Y-%m-%d %H:%M:%S") -> str:
+    """获取中国日期时间字符串"""
+    return datetime.now(CHINA_TZ).strftime(fmt)
 
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -373,6 +389,16 @@ class HumanInvestorBehavior:
         self.recent_performance = []  # 近期表现
         self.trade_count_today = 0  # 今日交易次数
         self.last_trade_time = None
+        self.last_trade_date = None  # 上次交易日期
+
+    def _check_daily_reset(self):
+        """检查是否需要每日重置"""
+        today = get_china_date_str()
+        if self.last_trade_date != today:
+            # 新的一天，重置交易计数和冷静期
+            self.trade_count_today = 0
+            self.last_trade_time = None  # 新的一天可以立即交易
+            self.last_trade_date = today
 
     def update_mood(self, pnl_pct: float):
         """更新情绪"""
@@ -390,13 +416,16 @@ class HumanInvestorBehavior:
 
     def should_trade(self, bypass_cooldown: bool = False) -> Tuple[bool, str]:
         """判断是否应该交易"""
+        # 检查是否需要每日重置
+        self._check_daily_reset()
+
         # 检查交易频率限制 (模拟人类不会过度交易)
         if self.trade_count_today > 10:  # 放宽限制
             return False, "今日交易次数已达上限"
 
         # 检查冷静期 (模拟人类思考时间) - 可跳过
         if not bypass_cooldown and self.last_trade_time:
-            cooldown = (datetime.now() - self.last_trade_time).total_seconds()
+            cooldown = (get_china_now() - self.last_trade_time).total_seconds()
             if cooldown < 30:  # 缩短到30秒
                 return False, "交易冷静期中"
 
@@ -533,7 +562,7 @@ class DiversifiedInvestmentSystem:
                 for symbol, pos in self.positions.items()
             },
             'trades': self.trade_history,
-            'last_update': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            'last_update': get_china_datetime_str()
         }
         with open(self.state_file, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
@@ -772,7 +801,7 @@ class DiversifiedInvestmentSystem:
             current_price=price,
             holding_type=holding_type,
             sector=stock.sector,
-            buy_date=datetime.now().strftime('%Y-%m-%d'),
+            buy_date=get_china_date_str(),
             strategy=strategy,
             target_price=target,
             stop_loss=stop_loss,
@@ -781,7 +810,7 @@ class DiversifiedInvestmentSystem:
 
         # 记录交易
         self.trade_history.append({
-            'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'time': get_china_datetime_str(),
             'type': 'buy',
             'symbol': stock.symbol,
             'name': stock.name,
@@ -794,7 +823,7 @@ class DiversifiedInvestmentSystem:
         })
 
         self.behavior.trade_count_today += 1
-        self.behavior.last_trade_time = datetime.now()
+        self.behavior.last_trade_time = get_china_now()
 
         self._save_state()
 
@@ -837,7 +866,7 @@ class DiversifiedInvestmentSystem:
 
         # 记录交易
         self.trade_history.append({
-            'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'time': get_china_datetime_str(),
             'type': 'sell',
             'symbol': symbol,
             'name': pos.name,
@@ -847,7 +876,7 @@ class DiversifiedInvestmentSystem:
             'pnl': pnl,
             'pnl_pct': pnl_pct,
             'reason': reason,
-            'holding_days': (datetime.now() - datetime.strptime(pos.buy_date, '%Y-%m-%d')).days
+            'holding_days': (get_china_now() - datetime.strptime(pos.buy_date, '%Y-%m-%d')).days
         })
 
         # 更新持仓
@@ -856,7 +885,7 @@ class DiversifiedInvestmentSystem:
             del self.positions[symbol]
 
         self.behavior.trade_count_today += 1
-        self.behavior.last_trade_time = datetime.now()
+        self.behavior.last_trade_time = get_china_now()
 
         self._save_state()
 
@@ -946,7 +975,7 @@ class DiversifiedInvestmentSystem:
                      多样化投资组合报告
 ================================================================================
 
-生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+生成时间: {get_china_datetime_str()}
 投资风格: {self.config.investment_style.value}
 
 【资金概况】
@@ -1058,7 +1087,7 @@ class DiversifiedInvestmentSystem:
         print(report)
 
         # 保存报告
-        report_file = self.reports_dir / f"portfolio_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        report_file = self.reports_dir / f"portfolio_report_{get_china_date_str('%Y%m%d_%H%M%S')}.txt"
         with open(report_file, 'w', encoding='utf-8') as f:
             f.write(report)
 

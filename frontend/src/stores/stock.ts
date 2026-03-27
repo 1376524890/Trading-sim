@@ -238,10 +238,33 @@ export const useStockStore = defineStore('stock', () => {
     }
   }
 
-  // Fetch trade history
+  // Fetch trade history (from diversified investment system)
   const fetchTransactions = async () => {
     try {
-      const response = await axios.get(`${API_BASE}/trade/history`)
+      // Try diversified trades first, fallback to legacy trade history
+      let response
+      try {
+        response = await axios.get(`${API_BASE}/diversified/trades`)
+        if (response.data.success && response.data.trades) {
+          const data = response.data
+          transactions.value = data.trades.map((trade: any, index: number) => ({
+            id: `TXN${String(index + 1).padStart(3, '0')}`,
+            symbol: trade.symbol,
+            type: trade.type as 'buy' | 'sell',
+            shares: trade.shares,
+            price: trade.price,
+            total: trade.total_cost || (trade.shares * trade.price),
+            timestamp: new Date(trade.time),
+            fees: trade.commission || 5
+          }))
+          return
+        }
+      } catch (e) {
+        console.warn('Failed to fetch diversified trades, trying legacy API')
+      }
+
+      // Fallback to legacy /trade/history
+      response = await axios.get(`${API_BASE}/trade/history`)
       const data = response.data
 
       if (!data.trades) {
